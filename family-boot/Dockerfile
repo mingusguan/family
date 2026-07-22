@@ -1,23 +1,36 @@
-# 基础镜像
-FROM openjdk:17
+# syntax=docker/dockerfile:1.7
 
-# 维护者信息
-LABEL maintainer="youlai <youlaitech@163.com>"
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 
-# 设置时区（Debian直接使用环境变量）
-ENV TZ=Asia/Shanghai
+WORKDIR /workspace
 
-# 在运行时自动挂载 /tmp 目录为匿名卷
-VOLUME /tmp
+COPY pom.xml ./
+COPY src ./src
 
-# 添加应用
-ADD target/family-boot.jar app.jar
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B clean package -DskipTests
 
-# 启动命令
-CMD java \
-    -Xms512m -Xmx512m \
-    -Djava.security.egd=file:/dev/./urandom \
-    -jar /app.jar
+FROM eclipse-temurin:17-jre-jammy
 
-# 暴露端口
+ENV TZ=Asia/Shanghai \
+    JAVA_OPTS="-Xms256m -Xmx768m -XX:+UseG1GC -Duser.timezone=Asia/Shanghai" \
+    SPRING_PROFILES_ACTIVE=prod
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 family \
+    && useradd --system --uid 10001 --gid family --home-dir /app family \
+    && mkdir -p /logs/family-boot /app/uploadPath \
+    && chown -R family:family /app /logs/family-boot
+
+COPY --from=build --chown=10001:10001 \
+    /workspace/target/family-boot.jar /app/family-boot.jar
+
+USER 10001:10001
+
 EXPOSE 8000
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/family-boot.jar"]

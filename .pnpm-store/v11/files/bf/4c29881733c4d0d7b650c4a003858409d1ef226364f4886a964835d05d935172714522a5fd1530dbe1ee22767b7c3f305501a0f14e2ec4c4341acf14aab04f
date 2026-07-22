@@ -1,0 +1,2118 @@
+import { onBackPress, onHide, onInit, onLoad, onReady, onShow, onUnload, onPageScroll } from '@dcloudio/uni-app';
+import { ref, computed, getCurrentInstance, getCurrentScope, onScopeDispose, reactive, shallowRef, isRef, readonly, unref, watch, onMounted } from 'vue';
+import { resolveUnref, watchWithFilter, until, tryOnScopeDispose as tryOnScopeDispose$1, resolveRef, useIntervalFn, tryOnMounted, pausableWatch } from '@vueuse/core';
+
+const name = "@uni-helper/uni-use";
+
+var __defProp$c = Object.defineProperty;
+var __defProps$3 = Object.defineProperties;
+var __getOwnPropDescs$3 = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols$c = Object.getOwnPropertySymbols;
+var __hasOwnProp$c = Object.prototype.hasOwnProperty;
+var __propIsEnum$c = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$c = (obj, key, value) => key in obj ? __defProp$c(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$c = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$c.call(b, prop))
+      __defNormalProp$c(a, prop, b[prop]);
+  if (__getOwnPropSymbols$c)
+    for (var prop of __getOwnPropSymbols$c(b)) {
+      if (__propIsEnum$c.call(b, prop))
+        __defNormalProp$c(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps$3 = (a, b) => __defProps$3(a, __getOwnPropDescs$3(b));
+const pages = ref([]);
+const pageLength = computed(() => pages.value.length);
+const current = computed(() => {
+  var _a;
+  return (_a = pages.value) == null ? void 0 : _a[pageLength.value - 1];
+});
+const prev = computed(
+  () => {
+    var _a;
+    return pageLength.value > 1 ? pages.value[pageLength.value - 2] : (_a = pages.value) == null ? void 0 : _a[pageLength.value - 1];
+  }
+);
+const currentUrl = computed(() => {
+  var _a;
+  return ((_a = current.value) == null ? void 0 : _a.route) || "/";
+});
+const prevUrl = computed(() => {
+  var _a;
+  return (_a = prev.value) == null ? void 0 : _a.route;
+});
+let tabBarUrls = [];
+let isAddInterceptors = false;
+let isBindBackPress = false;
+function initIfNotInited() {
+  if (!isAddInterceptors) {
+    isAddInterceptors = true;
+    uni.addInterceptor("navigateTo", { complete: refreshCurrentPages });
+    uni.addInterceptor("redirectTo", { complete: refreshCurrentPages });
+    uni.addInterceptor("reLaunch", { complete: refreshCurrentPages });
+    uni.addInterceptor("switchTab", { complete: refreshCurrentPages });
+    uni.addInterceptor("navigateBack", { complete: refreshCurrentPages });
+  }
+  if (!isBindBackPress) {
+    isBindBackPress = true;
+    tryOnBackPress((e) => {
+      if (e.from === "navigateBack") {
+        return;
+      }
+      refreshCurrentPages();
+    }).catch(() => {
+      isBindBackPress = false;
+    });
+  }
+  refreshCurrentPages();
+}
+function refreshCurrentPages() {
+  pages.value = getCurrentPages();
+}
+function warpPromiseOptions(opts, resolve, reject) {
+  let { fail, success, complete } = opts;
+  fail = fail || ((err) => err);
+  success = success || ((res) => res);
+  complete = complete || (() => {
+  });
+  return __spreadProps$3(__spreadValues$c({}, opts), {
+    success: (res) => resolve(success(res)),
+    fail: (err) => reject(fail(err)),
+    complete
+  });
+}
+function switchTab(options) {
+  return new Promise((resolve, reject) => {
+    uni.switchTab(warpPromiseOptions(options, resolve, reject));
+  });
+}
+function navigateTo(options) {
+  return new Promise((resolve, reject) => {
+    uni.navigateTo(warpPromiseOptions(options, resolve, reject));
+  });
+}
+function redirectTo(options) {
+  return new Promise((resolve, reject) => {
+    uni.redirectTo(warpPromiseOptions(options, resolve, reject));
+  });
+}
+function reLaunch(options) {
+  return new Promise((resolve, reject) => {
+    uni.reLaunch(warpPromiseOptions(options, resolve, reject));
+  });
+}
+function back(options) {
+  return new Promise((resolve, reject) => {
+    uni.navigateBack(warpPromiseOptions(options || {}, resolve, reject));
+  });
+}
+function trySwitchTab(tryTabBar, forward, options) {
+  if (!tryTabBar) {
+    return forward(options);
+  }
+  if (tabBarUrls.length === 0) {
+    return switchTab(options).catch(() => forward(options));
+  }
+  const url = typeof options.url === "string" ? options.url : options.url.toString();
+  if (isTabBarPath(url)) {
+    return switchTab(options);
+  }
+  return forward(options);
+}
+function isTabBarPath(path) {
+  const target = pathResolve(path);
+  const tabbar = tabBarUrls.find((url) => url === target || `${url}/` === target);
+  return tabbar !== void 0;
+}
+function useRouter(options = {}) {
+  initIfNotInited();
+  const { tryTabBar = true } = options;
+  if (options.tabBarList) {
+    const urls = [];
+    for (const item of options.tabBarList) {
+      if (typeof item === "string") {
+        urls.push(item);
+      } else {
+        urls.push(item.pagePath);
+      }
+    }
+    tabBarUrls = urls.filter((url) => !!url);
+  }
+  function navigate(options2) {
+    return trySwitchTab(tryTabBar, navigateTo, options2);
+  }
+  function redirect(options2) {
+    return trySwitchTab(tryTabBar, redirectTo, options2);
+  }
+  return {
+    /** 获取当前页面栈信息 */
+    pages,
+    /** 获取当前页信息 */
+    current,
+    /** @deprecated 弃用，请使用 current */
+    page: current,
+    /** 获取当前页路由信息 */
+    currentUrl,
+    /** @deprecated 弃用，请使用 currentUrl */
+    route: currentUrl,
+    /** 获取前一页信息 */
+    prev,
+    /** @deprecated 弃用，请使用 prev */
+    prevPage: prev,
+    /** 获取前一页路由信息 */
+    prevUrl,
+    /** @deprecated 弃用，请使用 prevUrl */
+    prevRoute: prevUrl,
+    /** 切换 tabbar 页面。 */
+    switchTab,
+    /** 路由跳转 */
+    navigate,
+    /** 路由重定向 */
+    redirect,
+    /** 重定向，并清空当前页面栈 */
+    reLaunch,
+    /** 后退 */
+    back
+  };
+}
+
+function isString(val) {
+  return typeof val === "string";
+}
+function isFunction(val) {
+  return typeof val === "function";
+}
+function noop() {
+}
+function pathResolve(target, current) {
+  if (target.startsWith("/")) {
+    return target;
+  }
+  if (!current) {
+    const { currentUrl } = useRouter();
+    current = currentUrl.value;
+  }
+  if (!current) {
+    throw new Error("The current path is undefined and cannot be found.");
+  }
+  if (!target) {
+    return current;
+  }
+  if (target.startsWith("./")) {
+    return pathResolve(target.slice(2), current);
+  }
+  let currentPaths = [];
+  if (current.endsWith("/")) {
+    currentPaths = current.split("/").filter((part) => part !== "" && part !== ".");
+  } else {
+    currentPaths = current.split("/");
+    currentPaths.pop();
+    currentPaths = currentPaths.filter((part) => part !== "" && part !== ".");
+  }
+  let targetPaths = [];
+  let targetPage = "";
+  if (target.endsWith("/")) {
+    targetPaths = target.split("/").filter((part) => part !== "" && part !== ".");
+  } else {
+    targetPaths = target.split("/");
+    targetPage = targetPaths.pop() || "";
+    targetPaths = targetPaths.filter((part) => part !== "" && part !== ".");
+  }
+  const paths = [...currentPaths, ...targetPaths];
+  const finalPaths = [];
+  for (const p of paths) {
+    if (p === "..") {
+      finalPaths.pop();
+    } else {
+      finalPaths.push(p);
+    }
+  }
+  return `/${finalPaths.join("/")}/${targetPage}`;
+}
+function sleep(ms = 0) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function isThenable(promise) {
+  return typeof promise.then === "function";
+}
+function once(fn) {
+  let res;
+  let f = fn;
+  return (...args) => {
+    if (f) {
+      res = f(...args);
+      f = void 0;
+    }
+    return res;
+  };
+}
+
+async function tryOnBackPress(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onBackPress(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  throw new Error("Binding onBackPress failed, maximum number of attempts exceeded.");
+}
+
+async function tryOnHide(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onHide(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onHide(hook);
+  }
+  throw new Error("Binding onHide failed, maximum number of attempts exceeded.");
+}
+
+async function tryOnInit(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onInit(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onInit(hook);
+  }
+  throw new Error("Binding onInit failed, maximum number of attempts exceeded.");
+}
+
+async function tryOnLoad(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onLoad(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onLoad(hook);
+  }
+  throw new Error("Binding onLoad failed, maximum number of attempts exceeded.");
+}
+
+async function tryOnReady(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onReady(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onReady(hook);
+  }
+  throw new Error("Binding onReady failed, maximum number of attempts exceeded.");
+}
+
+function tryOnScopeDispose(fn) {
+  if (getCurrentScope()) {
+    onScopeDispose(fn);
+    return true;
+  }
+  return false;
+}
+
+async function tryOnShow(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onShow(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onShow(hook);
+  }
+  throw new Error("Binding onShow failed, maximum number of attempts exceeded.");
+}
+
+async function tryOnUnload(hook, target, options = {}) {
+  const {
+    retry = 3,
+    interval = 500,
+    runFinally = true
+  } = options;
+  function tryBind() {
+    const instance = target || getCurrentInstance();
+    if (instance) {
+      onUnload(hook, instance);
+      return true;
+    }
+    return false;
+  }
+  for (let circle = 1; circle <= retry; circle++) {
+    if (tryBind()) {
+      return;
+    }
+    await sleep(interval);
+  }
+  if (runFinally) {
+    return onUnload(hook);
+  }
+  throw new Error("Binding onUnload failed, maximum number of attempts exceeded.");
+}
+
+var __defProp$b = Object.defineProperty;
+var __getOwnPropSymbols$b = Object.getOwnPropertySymbols;
+var __hasOwnProp$b = Object.prototype.hasOwnProperty;
+var __propIsEnum$b = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$b = (obj, key, value) => key in obj ? __defProp$b(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$b = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$b.call(b, prop))
+      __defNormalProp$b(a, prop, b[prop]);
+  if (__getOwnPropSymbols$b)
+    for (var prop of __getOwnPropSymbols$b(b)) {
+      if (__propIsEnum$b.call(b, prop))
+        __defNormalProp$b(a, prop, b[prop]);
+    }
+  return a;
+};
+function useActionSheet(options) {
+  return function showActionSheet(newOptions) {
+    return uni.showActionSheet(
+      reactive(__spreadValues$b(__spreadValues$b({
+        itemList: []
+      }, resolveUnref(options)), resolveUnref(newOptions)))
+    );
+  };
+}
+
+const globalInterceptors = {};
+const originMethods = {};
+function wrappMethod(method) {
+  if (method in originMethods) {
+    return uni[method];
+  }
+  const origin = uni[method];
+  originMethods[method] = origin;
+  uni[method] = (...args) => {
+    const interceptors = globalInterceptors[method] || {};
+    const effectInterceptors = [];
+    for (const [_key, interceptor] of Object.entries(interceptors)) {
+      if (interceptor.invoke && interceptor.invoke(args) === false) {
+        continue;
+      }
+      effectInterceptors.push(interceptor);
+    }
+    const hasAsyncOption = args.length === 1 && (args[0].success || args[0].fail || args[0].complete);
+    if (hasAsyncOption) {
+      const opt = args[0];
+      const oldSuccess = opt.success;
+      opt.success = (result) => {
+        for (const interceptor of effectInterceptors) {
+          interceptor.success && interceptor.success(result);
+        }
+        oldSuccess && oldSuccess(result);
+      };
+      const oldFail = opt.fail;
+      opt.fail = (err) => {
+        for (const interceptor of effectInterceptors) {
+          interceptor.fail && interceptor.fail(err);
+        }
+        oldFail && oldFail(err);
+      };
+      const oldComplete = opt.complete;
+      opt.complete = () => {
+        for (const interceptor of effectInterceptors) {
+          interceptor.complete && interceptor.complete();
+        }
+        oldComplete && oldComplete();
+      };
+      return origin(opt);
+    } else {
+      try {
+        const result = origin(...args);
+        if (isThenable(result)) {
+          return result.then((res) => {
+            for (const interceptor of effectInterceptors) {
+              interceptor.success && interceptor.success(res);
+            }
+            return res;
+          }).catch((err) => {
+            for (const interceptor of effectInterceptors) {
+              interceptor.fail && interceptor.fail(err);
+            }
+            return err;
+          });
+        }
+        for (const interceptor of effectInterceptors) {
+          interceptor.success && interceptor.success(result);
+        }
+        return result;
+      } catch (err) {
+        for (const interceptor of effectInterceptors) {
+          interceptor.fail && interceptor.fail(err);
+        }
+      } finally {
+        for (const interceptor of effectInterceptors) {
+          interceptor.complete && interceptor.complete();
+        }
+      }
+    }
+  };
+  return uni[method];
+}
+function useInterceptor(method, interceptor) {
+  wrappMethod(method);
+  globalInterceptors[method] = globalInterceptors[method] || {};
+  const key = Math.random().toString(36).slice(-8);
+  globalInterceptors[method][key] = interceptor;
+  const stop = () => {
+    delete globalInterceptors[method][key];
+  };
+  tryOnScopeDispose(stop);
+  return stop;
+}
+
+function getClipboardData(showToast = true) {
+  return new Promise((resolve, reject) => {
+    uni.getClipboardData({
+      showToast,
+      success: ({ data }) => resolve(data),
+      fail: (error) => reject(error),
+      complete: () => {
+        if (!showToast) {
+          uni.hideToast();
+        }
+      }
+    });
+    if (!showToast) {
+      uni.hideToast();
+    }
+  });
+}
+function setClipboardData(data, showToast = true) {
+  return new Promise((resolve, reject) => {
+    uni.setClipboardData({
+      data,
+      showToast,
+      success: ({ data: data2 }) => resolve(data2),
+      fail: (error) => reject(error),
+      complete: () => {
+        if (!showToast) {
+          uni.hideToast();
+        }
+      }
+    });
+    if (!showToast) {
+      uni.hideToast();
+    }
+  });
+}
+function useClipboardData(initialValue, options = {}) {
+  const {
+    showToast = true,
+    listenToClipboardDataChanges = true,
+    onError = (error) => console.error(error),
+    flush = "pre",
+    eventFilter
+  } = options;
+  const data = ref(initialValue);
+  async function read() {
+    try {
+      data.value = await getClipboardData(showToast);
+    } catch (error) {
+      onError(error);
+    }
+  }
+  read();
+  if (listenToClipboardDataChanges) {
+    useInterceptor("setClipboardData", { complete: () => setTimeout(() => read(), 0) });
+  }
+  watchWithFilter(
+    data,
+    async () => {
+      try {
+        await setClipboardData(data.value);
+      } catch (error) {
+        onError(error);
+      }
+    },
+    { flush, eventFilter }
+  );
+  return data;
+}
+
+var __defProp$a = Object.defineProperty;
+var __defProps$2 = Object.defineProperties;
+var __getOwnPropDescs$2 = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols$a = Object.getOwnPropertySymbols;
+var __hasOwnProp$a = Object.prototype.hasOwnProperty;
+var __propIsEnum$a = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$a = (obj, key, value) => key in obj ? __defProp$a(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$a = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$a.call(b, prop))
+      __defNormalProp$a(a, prop, b[prop]);
+  if (__getOwnPropSymbols$a)
+    for (var prop of __getOwnPropSymbols$a(b)) {
+      if (__propIsEnum$a.call(b, prop))
+        __defNormalProp$a(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps$2 = (a, b) => __defProps$2(a, __getOwnPropDescs$2(b));
+function useDownloadFile(...args) {
+  const url = typeof args[0] === "string" ? args[0] : void 0;
+  const argsPlaceholder = isString(url) ? 1 : 0;
+  const defaultOptions = {
+    immediate: !!argsPlaceholder,
+    shallow: true
+  };
+  let defaultConfig = {};
+  let options = defaultOptions;
+  if (args.length > 0 + argsPlaceholder) {
+    defaultConfig = args[0 + argsPlaceholder];
+  }
+  if (args.length === 3) {
+    options = args[0 + argsPlaceholder];
+  }
+  const {
+    initialData,
+    shallow,
+    onSuccess = noop,
+    onError = noop,
+    onFinish = noop,
+    immediate,
+    resetOnExecute = false
+  } = options;
+  const task = shallowRef();
+  const response = shallowRef();
+  const data = shallow ? shallowRef() : ref();
+  const isFinished = ref(false);
+  const isLoading = ref(false);
+  const isAborted = ref(false);
+  const error = shallowRef();
+  const abort = (message) => {
+    var _a;
+    if (isFinished.value || !isLoading.value) {
+      return;
+    }
+    (_a = task.value) == null ? void 0 : _a.abort(message);
+    isAborted.value = true;
+    isLoading.value = false;
+    isFinished.value = false;
+  };
+  const loading = (loading2) => {
+    isLoading.value = loading2;
+    isFinished.value = !loading2;
+  };
+  const resetData = () => {
+    if (resetOnExecute) {
+      data.value = initialData;
+    }
+  };
+  const promise = {
+    then: (...args2) => waitUntilFinished().then(...args2),
+    catch: (...args2) => waitUntilFinished().catch(...args2)
+  };
+  let executeCounter = 0;
+  const execute = (executeUrl = url, config = {}) => {
+    error.value = void 0;
+    const _url = typeof executeUrl === "string" ? executeUrl : url != null ? url : config.url;
+    if (_url === void 0) {
+      error.value = {
+        errMsg: "Invalid URL provided for uni.request."
+      };
+      isFinished.value = true;
+      return promise;
+    }
+    resetData();
+    abort();
+    loading(true);
+    executeCounter += 1;
+    const currentExecuteCounter = executeCounter;
+    isAborted.value = false;
+    const _config = __spreadProps$2(__spreadValues$a(__spreadValues$a({}, defaultConfig), typeof executeUrl === "object" ? executeUrl : config), {
+      url: _url
+    });
+    task.value = uni.downloadFile(__spreadProps$2(__spreadValues$a({}, _config), {
+      success: (r) => {
+        var _a, _b;
+        if (isAborted.value) {
+          return;
+        }
+        (_a = _config.success) == null ? void 0 : _a.call(_config, r);
+        response.value = r;
+        const result2 = (_b = r == null ? void 0 : r.data) != null ? _b : {
+          tempFilePath: r == null ? void 0 : r.tempFilePath
+        };
+        data.value = result2;
+        onSuccess(result2);
+      },
+      fail: (e) => {
+        var _a;
+        (_a = _config.fail) == null ? void 0 : _a.call(_config, e);
+        error.value = e;
+        onError(e);
+      },
+      complete: (r) => {
+        var _a;
+        (_a = _config.complete) == null ? void 0 : _a.call(_config, r);
+        onFinish(r);
+        if (currentExecuteCounter === executeCounter) {
+          loading(false);
+        }
+      }
+    }));
+    return promise;
+  };
+  if (immediate && url) {
+    execute();
+  }
+  const result = {
+    task,
+    response,
+    data,
+    error,
+    isFinished,
+    isLoading,
+    cancel: abort,
+    isAborted,
+    isCanceled: isAborted,
+    abort,
+    execute
+  };
+  function waitUntilFinished() {
+    return new Promise((resolve, reject) => {
+      until(isFinished).toBe(true).then(() => error.value ? reject(error.value) : resolve(result));
+    });
+  }
+  return __spreadValues$a(__spreadValues$a({}, result), promise);
+}
+
+var __defProp$9 = Object.defineProperty;
+var __getOwnPropSymbols$9 = Object.getOwnPropertySymbols;
+var __hasOwnProp$9 = Object.prototype.hasOwnProperty;
+var __propIsEnum$9 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$9 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$9.call(b, prop))
+      __defNormalProp$9(a, prop, b[prop]);
+  if (__getOwnPropSymbols$9)
+    for (var prop of __getOwnPropSymbols$9(b)) {
+      if (__propIsEnum$9.call(b, prop))
+        __defNormalProp$9(a, prop, b[prop]);
+    }
+  return a;
+};
+function useGlobalData(initialValue, options = {}) {
+  const {
+    writeDefaults = true,
+    mergeDefaults = false,
+    shallow = false,
+    deep = true,
+    flush = "pre",
+    eventFilter
+  } = options;
+  const app = ref(getApp());
+  const rawInit = resolveUnref(initialValue);
+  const data = (shallow ? shallowRef : ref)(initialValue);
+  watchWithFilter(data, () => {
+    var _a;
+    return app.value.globalData = (_a = data.value) != null ? _a : void 0;
+  }, {
+    flush,
+    deep,
+    eventFilter
+  });
+  function read() {
+    const rawValue = app.value.globalData;
+    if (rawValue == null) {
+      if (writeDefaults && rawInit !== null) {
+        app.value.globalData = rawInit;
+      }
+      return rawInit;
+    } else if (mergeDefaults) {
+      const value = rawValue;
+      return isFunction(mergeDefaults) ? mergeDefaults(value, rawInit) : __spreadValues$9(__spreadValues$9({}, rawInit), value);
+    } else {
+      return rawValue;
+    }
+  }
+  data.value = read();
+  return data;
+}
+
+var __defProp$8 = Object.defineProperty;
+var __getOwnPropSymbols$8 = Object.getOwnPropertySymbols;
+var __hasOwnProp$8 = Object.prototype.hasOwnProperty;
+var __propIsEnum$8 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$8 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$8.call(b, prop))
+      __defNormalProp$8(a, prop, b[prop]);
+  if (__getOwnPropSymbols$8)
+    for (var prop of __getOwnPropSymbols$8(b)) {
+      if (__propIsEnum$8.call(b, prop))
+        __defNormalProp$8(a, prop, b[prop]);
+    }
+  return a;
+};
+function hideLoading() {
+  return uni.hideLoading();
+}
+function useLoading(options) {
+  function showLoading(newOptions) {
+    uni.showLoading(
+      reactive(__spreadValues$8(__spreadValues$8({}, resolveUnref(options)), resolveUnref(newOptions)))
+    );
+    return hideLoading;
+  }
+  return {
+    /**
+     * 显示加载提示框
+     *
+     * https://uniapp.dcloud.net.cn/api/ui/prompt.html#showloading
+     */
+    showLoading,
+    /**
+     * 隐藏加载提示框
+     *
+     * https://uniapp.dcloud.net.cn/api/ui/prompt.html#hideloading
+     */
+    hideLoading
+  };
+}
+
+var __defProp$7 = Object.defineProperty;
+var __getOwnPropSymbols$7 = Object.getOwnPropertySymbols;
+var __hasOwnProp$7 = Object.prototype.hasOwnProperty;
+var __propIsEnum$7 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$7 = (obj, key, value) => key in obj ? __defProp$7(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$7 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$7.call(b, prop))
+      __defNormalProp$7(a, prop, b[prop]);
+  if (__getOwnPropSymbols$7)
+    for (var prop of __getOwnPropSymbols$7(b)) {
+      if (__propIsEnum$7.call(b, prop))
+        __defNormalProp$7(a, prop, b[prop]);
+    }
+  return a;
+};
+function useModal(options) {
+  return function showModal(newOptions) {
+    return uni.showModal(
+      reactive(__spreadValues$7(__spreadValues$7({}, resolveUnref(options)), resolveUnref(newOptions)))
+    );
+  };
+}
+
+function useNetwork() {
+  const type = ref("none");
+  const isWifi = computed(() => type.value === "wifi");
+  const is2g = computed(() => type.value === "2g");
+  const is3g = computed(() => type.value === "3g");
+  const is4g = computed(() => type.value === "4g");
+  const is5g = computed(() => type.value === "5g");
+  const isEthernet = computed(() => type.value === "ethernet");
+  const isUnknown = computed(() => type.value === "unknown");
+  const isOffline = computed(() => type.value === "none");
+  const isOnline = computed(() => !isOffline.value);
+  const updateNetwork = (result) => {
+    var _a;
+    type.value = (_a = result == null ? void 0 : result.networkType) != null ? _a : "unknown";
+  };
+  uni.getNetworkType({
+    success: (result) => updateNetwork(result)
+  });
+  const callback = (result) => updateNetwork(result);
+  uni.onNetworkStatusChange(callback);
+  const stop = () => uni.offNetworkStatusChange(callback);
+  tryOnScopeDispose$1(stop);
+  return {
+    type,
+    isWifi,
+    is2g,
+    is3g,
+    is4g,
+    is5g,
+    isEthernet,
+    isUnknown,
+    isOnline,
+    isOffline
+  };
+}
+
+function useOnline() {
+  const { isOnline } = useNetwork();
+  return isOnline;
+}
+
+function usePage() {
+  const { page } = useRouter();
+  return page;
+}
+
+function usePages() {
+  const { pages } = useRouter();
+  return pages;
+}
+
+function usePageScroll(options) {
+  const { duration = 300 } = options;
+  const _scrollTop = ref(0);
+  const scrollTop = computed({
+    get() {
+      return _scrollTop.value;
+    },
+    set(val) {
+      uni.pageScrollTo({
+        scrollTop: val,
+        duration
+      });
+    }
+  });
+  onPageScroll((e) => {
+    _scrollTop.value = e.scrollTop;
+  });
+  const scrollToSelector = isRef(options == null ? void 0 : options.scrollToSelector) ? options.scrollToSelector : ref((options == null ? void 0 : options.scrollToSelector) || "");
+  watchWithFilter(
+    () => scrollToSelector.value,
+    (newValue) => {
+      uni.pageScrollTo({
+        selector: newValue,
+        duration
+      });
+    },
+    {
+      eventFilter: (e) => e !== void 0
+    }
+  );
+  return {
+    scrollTop,
+    scrollToSelector
+  };
+}
+
+function usePreferredDark() {
+  const prefersDark = ref(uni.getSystemInfoSync().osTheme === "dark");
+  const callback = ({ theme }) => {
+    prefersDark.value = theme === "dark";
+  };
+  uni.onThemeChange(callback);
+  const stop = () => uni.offThemeChange(callback);
+  tryOnScopeDispose$1(stop);
+  return readonly(prefersDark);
+}
+
+function usePreferredLanguage() {
+  const locale = ref(uni.getLocale());
+  const callback = (result) => {
+    var _a;
+    locale.value = (_a = result.locale) != null ? _a : locale.value;
+  };
+  uni.onLocaleChange(callback);
+  const stop = () => {
+    if (uni.offLocaleChange) {
+      uni.offLocaleChange(callback);
+    }
+  };
+  tryOnScopeDispose$1(stop);
+  return readonly(locale);
+}
+
+function usePrevPage() {
+  const { prevPage } = useRouter();
+  return prevPage;
+}
+
+function usePrevRoute() {
+  const { prevRoute } = useRouter();
+  return prevRoute;
+}
+
+var __defProp$6 = Object.defineProperty;
+var __getOwnPropSymbols$6 = Object.getOwnPropertySymbols;
+var __hasOwnProp$6 = Object.prototype.hasOwnProperty;
+var __propIsEnum$6 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$6 = (obj, key, value) => key in obj ? __defProp$6(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$6 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$6.call(b, prop))
+      __defNormalProp$6(a, prop, b[prop]);
+  if (__getOwnPropSymbols$6)
+    for (var prop of __getOwnPropSymbols$6(b)) {
+      if (__propIsEnum$6.call(b, prop))
+        __defNormalProp$6(a, prop, b[prop]);
+    }
+  return a;
+};
+function useProvider(options) {
+  return function getProvider(newOptions) {
+    return uni.getProvider(
+      reactive(__spreadValues$6(__spreadValues$6({
+        service: "oauth"
+      }, resolveUnref(options)), resolveUnref(newOptions)))
+    );
+  };
+}
+
+function tryParseJson(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return value;
+  }
+  const isJsonLike = (s) => s.startsWith("{") && s.endsWith("}") || s.startsWith("[") && s.endsWith("]");
+  if (isJsonLike(trimmed)) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (e) {
+    }
+  }
+  try {
+    const decoded = decodeURIComponent(trimmed.replace(/\+/g, "%20")).trim();
+    if (isJsonLike(decoded)) {
+      return JSON.parse(decoded);
+    }
+  } catch (e) {
+  }
+  return value;
+}
+function processParams(params, options) {
+  const { parseJson = true } = options;
+  if (!parseJson) {
+    return params;
+  }
+  const processed = {};
+  for (const [key, value] of Object.entries(params)) {
+    processed[key] = tryParseJson(value);
+  }
+  return processed;
+}
+function useQuery(key, options = {}) {
+  const query = ref({});
+  tryOnLoad((q) => {
+    const rawParams = q || {};
+    query.value = processParams(rawParams, options);
+  });
+  const keyStr = key == null ? null : typeof key === "function" ? key() : unref(key);
+  const value = computed(() => keyStr != null ? query.value[keyStr] : null);
+  return { query, value };
+}
+
+var __defProp$5 = Object.defineProperty;
+var __defProps$1 = Object.defineProperties;
+var __getOwnPropDescs$1 = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols$5 = Object.getOwnPropertySymbols;
+var __hasOwnProp$5 = Object.prototype.hasOwnProperty;
+var __propIsEnum$5 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$5 = (obj, key, value) => key in obj ? __defProp$5(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$5 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$5.call(b, prop))
+      __defNormalProp$5(a, prop, b[prop]);
+  if (__getOwnPropSymbols$5)
+    for (var prop of __getOwnPropSymbols$5(b)) {
+      if (__propIsEnum$5.call(b, prop))
+        __defNormalProp$5(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps$1 = (a, b) => __defProps$1(a, __getOwnPropDescs$1(b));
+function useRequest(...args) {
+  var _a, _b;
+  let urlRef = ref();
+  const tmpArgs = [...args];
+  if (tmpArgs.length > 0) {
+    if (isString(tmpArgs[0])) {
+      urlRef.value = tmpArgs.shift();
+    } else if (isRef(tmpArgs[0]) && isString(tmpArgs[0].value)) {
+      urlRef = shallowRef(tmpArgs.shift());
+    }
+  }
+  const defaultConfig = __spreadValues$5({}, (_a = tmpArgs[0]) != null ? _a : {});
+  const options = __spreadValues$5({
+    immediate: !!urlRef.value,
+    shallow: true
+  }, (_b = tmpArgs[1]) != null ? _b : {});
+  if (!urlRef.value) {
+    urlRef.value = defaultConfig.url;
+  }
+  const {
+    initialData,
+    shallow,
+    onSuccess = noop,
+    onError = noop,
+    onFinish = noop,
+    immediate,
+    resetOnExecute = false
+  } = options;
+  const task = shallowRef();
+  const response = shallowRef();
+  const data = shallow ? shallowRef() : ref();
+  const isFinished = ref(false);
+  const isLoading = ref(false);
+  const isAborted = ref(false);
+  const error = shallowRef();
+  const abort = (message) => {
+    var _a2;
+    if (isFinished.value || !isLoading.value) {
+      return;
+    }
+    (_a2 = task.value) == null ? void 0 : _a2.abort(message);
+    isAborted.value = true;
+    isLoading.value = false;
+    isFinished.value = false;
+  };
+  const loading = (loading2) => {
+    isLoading.value = loading2;
+    isFinished.value = !loading2;
+  };
+  const resetData = () => {
+    if (resetOnExecute) {
+      data.value = initialData;
+    }
+  };
+  let resolve = (_) => {
+  };
+  let reject = (_) => {
+  };
+  const promise = new Promise((resolv, rej) => {
+    resolve = resolv;
+    reject = rej;
+  });
+  let executeCounter = 0;
+  const execute = (executeUrl, config = {}) => {
+    var _a2;
+    error.value = void 0;
+    const _url = typeof executeUrl === "string" ? executeUrl : (_a2 = urlRef.value) != null ? _a2 : config.url;
+    if (_url === void 0) {
+      error.value = {
+        errMsg: "Invalid URL provided for uni.request."
+      };
+      isFinished.value = true;
+      return promise;
+    }
+    resetData();
+    abort();
+    loading(true);
+    executeCounter += 1;
+    const currentExecuteCounter = executeCounter;
+    isAborted.value = false;
+    const _config = __spreadProps$1(__spreadValues$5(__spreadValues$5({}, defaultConfig), typeof executeUrl === "object" ? executeUrl : config), {
+      url: _url
+    });
+    const completeOnce = once((r) => {
+      var _a3;
+      (_a3 = _config.complete) == null ? void 0 : _a3.call(_config, r);
+      onFinish(r);
+      if (currentExecuteCounter === executeCounter) {
+        loading(false);
+      }
+    });
+    task.value = uni.request(__spreadProps$1(__spreadValues$5({}, _config), {
+      success: (r) => {
+        var _a3;
+        if (isAborted.value) {
+          return;
+        }
+        (_a3 = _config.success) == null ? void 0 : _a3.call(_config, r);
+        response.value = r;
+        const result2 = r.data;
+        data.value = result2;
+        onSuccess(result2);
+        completeOnce(r);
+      },
+      fail: (e) => {
+        var _a3;
+        (_a3 = _config.fail) == null ? void 0 : _a3.call(_config, e);
+        error.value = e;
+        onError(e);
+        completeOnce(e);
+      },
+      complete: (r) => {
+        completeOnce(r);
+      }
+    }));
+    return promise;
+  };
+  if (immediate && !!urlRef.value) {
+    execute();
+  }
+  const result = {
+    task,
+    response,
+    data,
+    error,
+    isFinished,
+    isLoading,
+    cancel: abort,
+    isAborted,
+    isCanceled: isAborted,
+    abort,
+    execute
+  };
+  watch(isFinished, (finished) => {
+    if (finished) {
+      error.value ? reject(error.value) : resolve(result);
+    }
+  });
+  const mixed = __spreadProps$1(__spreadValues$5({}, result), {
+    then: promise.then.bind(promise),
+    catch: promise.catch.bind(promise),
+    finally: promise.finally.bind(promise)
+  });
+  return mixed;
+}
+
+function useRoute() {
+  const { route } = useRouter();
+  return route;
+}
+
+var __defProp$4 = Object.defineProperty;
+var __getOwnPropSymbols$4 = Object.getOwnPropertySymbols;
+var __hasOwnProp$4 = Object.prototype.hasOwnProperty;
+var __propIsEnum$4 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$4 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$4.call(b, prop))
+      __defNormalProp$4(a, prop, b[prop]);
+  if (__getOwnPropSymbols$4)
+    for (var prop of __getOwnPropSymbols$4(b)) {
+      if (__propIsEnum$4.call(b, prop))
+        __defNormalProp$4(a, prop, b[prop]);
+    }
+  return a;
+};
+function useScanCode(options) {
+  return function scanCode(newOptions) {
+    return uni.scanCode(
+      reactive(__spreadValues$4(__spreadValues$4({}, resolveUnref(options)), resolveUnref(newOptions)))
+    );
+  };
+}
+
+function getScreenBrightness() {
+  return new Promise((resolve, reject) => {
+    uni.getScreenBrightness({
+      success: ({ value }) => resolve(value),
+      fail: (error) => reject(error)
+    });
+  });
+}
+function setScreenBrightness(value) {
+  return new Promise((resolve, reject) => {
+    uni.setScreenBrightness({
+      value,
+      success: () => resolve(),
+      fail: (error) => reject(error)
+    });
+  });
+}
+function useScreenBrightness(initialValue, options = {}) {
+  const {
+    listenToScreenBrightnessChanges = true,
+    onError = (error) => console.error(error),
+    flush = "pre",
+    eventFilter
+  } = options;
+  const data = ref(initialValue);
+  async function read() {
+    try {
+      data.value = await getScreenBrightness();
+    } catch (error) {
+      onError(error);
+    }
+  }
+  read();
+  if (listenToScreenBrightnessChanges) {
+    useInterceptor("setScreenBrightness", { complete: () => setTimeout(() => read(), 0) });
+  }
+  watchWithFilter(
+    data,
+    async () => {
+      try {
+        await setScreenBrightness(data.value);
+      } catch (error) {
+        onError(error);
+      }
+    },
+    { flush, eventFilter }
+  );
+  return data;
+}
+
+function useSelectorQuery() {
+  const query = ref();
+  initQuery();
+  onMounted(initQuery);
+  function initQuery() {
+    if (query.value) {
+      return;
+    }
+    const instance = getCurrentInstance();
+    if (instance == null) {
+      return;
+    }
+    query.value = uni.createSelectorQuery().in(instance);
+  }
+  function getQuery() {
+    initQuery();
+    if (query.value == null) {
+      throw new Error("SelectorQuery initialization failed");
+    }
+    return query.value;
+  }
+  function select(selector, all) {
+    return typeof selector === "string" ? all ? getQuery().selectAll(selector) : getQuery().select(selector) : selector;
+  }
+  function getBoundingClientRect(selector, all) {
+    return new Promise((resolve) => {
+      select(selector, all).boundingClientRect((res) => resolve(res)).exec();
+    });
+  }
+  function getFields(selector, fields, all) {
+    return new Promise((resolve) => {
+      select(selector, all).fields(fields, (res) => resolve(res)).exec();
+    });
+  }
+  function getScrollOffset(selector) {
+    return new Promise((resolve) => {
+      const node = selector === void 0 ? getQuery().selectViewport() : select(selector);
+      node.scrollOffset((res) => resolve(res)).exec();
+    });
+  }
+  function getContext(selector, all) {
+    return new Promise((resolve) => {
+      select(selector, all).context((res) => resolve(res)).exec();
+    });
+  }
+  return {
+    query,
+    getQuery,
+    select,
+    getNode: select,
+    getBoundingClientRect,
+    getFields,
+    getScrollOffset,
+    getContext
+  };
+}
+
+const DEFAULT_PING_MESSAGE = "ping";
+function resolveNestedOptions(options) {
+  if (options === true) {
+    return {};
+  }
+  return options;
+}
+function useSocket(url, options = {}) {
+  const {
+    onConnected,
+    onClosed,
+    onError,
+    onMessage,
+    heartbeat = false,
+    autoReconnect = false,
+    immediate = true,
+    autoClose = true,
+    multiple = false,
+    headers,
+    method = "GET",
+    protocols = []
+  } = options;
+  const data = ref(null);
+  const status = ref("CLOSED");
+  const isOpen = computed(() => status.value === "OPEN");
+  const isConnecting = computed(() => status.value === "CONNECTING");
+  const isClosed = computed(() => status.value === "CLOSED");
+  const taskRef = ref();
+  const urlRef = resolveRef(url);
+  let heartbeatPause;
+  let heartbeatResume;
+  let explicitlyClosed = false;
+  let retried = 0;
+  let bufferedData = [];
+  let pongTimeoutWait;
+  const _sendBuffer = () => {
+    if (bufferedData.length > 0 && taskRef.value && status.value === "OPEN") {
+      for (const buffer of bufferedData) {
+        taskRef.value.send({ data: buffer });
+      }
+      bufferedData = [];
+    }
+  };
+  const resetHeartbeat = () => {
+    clearTimeout(pongTimeoutWait);
+    pongTimeoutWait = void 0;
+  };
+  const close = ({ code = 1e3, reason } = {}) => {
+    if (!taskRef.value) {
+      return;
+    }
+    explicitlyClosed = true;
+    heartbeatPause == null ? void 0 : heartbeatPause();
+    taskRef.value.close({ code, reason });
+  };
+  const send = (data2, useBuffer = true) => {
+    if (!taskRef.value || status.value !== "OPEN") {
+      if (useBuffer) {
+        bufferedData.push(data2);
+      }
+      return false;
+    }
+    _sendBuffer();
+    taskRef.value.send({ data: data2 });
+    return true;
+  };
+  const _init = () => {
+    if (explicitlyClosed || urlRef.value === void 0) {
+      return;
+    }
+    const task = uni.connectSocket({
+      url: urlRef.value,
+      multiple,
+      header: headers,
+      method,
+      protocols,
+      complete: () => {
+      }
+    });
+    taskRef.value = task;
+    status.value = "CONNECTING";
+    task.onOpen((result) => {
+      status.value = "OPEN";
+      onConnected == null ? void 0 : onConnected(task, result);
+      heartbeatResume == null ? void 0 : heartbeatResume();
+      _sendBuffer();
+    });
+    task.onClose((result) => {
+      status.value = "CLOSED";
+      taskRef.value = void 0;
+      onClosed == null ? void 0 : onClosed(task, result);
+      if (!explicitlyClosed && autoReconnect) {
+        const { retries = -1, delay = 1e3, onFailed } = resolveNestedOptions(autoReconnect);
+        retried += 1;
+        if (typeof retries === "number" && (retries < 0 || retried < retries)) {
+          setTimeout(_init, delay);
+        } else if (typeof retries === "function" && retries()) {
+          setTimeout(_init, delay);
+        } else {
+          onFailed == null ? void 0 : onFailed();
+        }
+      }
+    });
+    task.onError((error) => {
+      onError == null ? void 0 : onError(task, error);
+    });
+    task.onMessage((result) => {
+      if (heartbeat) {
+        resetHeartbeat();
+        const { message = DEFAULT_PING_MESSAGE } = resolveNestedOptions(heartbeat);
+        if (result.data === message) {
+          return;
+        }
+      }
+      data.value = result.data;
+      onMessage == null ? void 0 : onMessage(task, result);
+    });
+  };
+  if (heartbeat) {
+    const {
+      message = DEFAULT_PING_MESSAGE,
+      interval = 1e3,
+      pongTimeout = 1e3
+    } = resolveNestedOptions(heartbeat);
+    const { pause, resume } = useIntervalFn(
+      () => {
+        send(message, false);
+        if (pongTimeoutWait != null) {
+          return;
+        }
+        pongTimeoutWait = setTimeout(() => {
+          close({});
+        }, pongTimeout);
+      },
+      interval,
+      { immediate: false }
+    );
+    heartbeatPause = pause;
+    heartbeatResume = resume;
+  }
+  if (autoClose) {
+    tryOnUnload(() => close({}));
+    tryOnScopeDispose$1(() => close({}));
+  }
+  const open = () => {
+    close({});
+    explicitlyClosed = false;
+    retried = 0;
+    _init();
+  };
+  if (immediate) {
+    watch(urlRef, open, { immediate: true });
+  }
+  return {
+    data,
+    status,
+    isOpen,
+    isConnecting,
+    isClosed,
+    close,
+    send,
+    open,
+    task: taskRef
+  };
+}
+
+var __defProp$3 = Object.defineProperty;
+var __getOwnPropSymbols$3 = Object.getOwnPropertySymbols;
+var __hasOwnProp$3 = Object.prototype.hasOwnProperty;
+var __propIsEnum$3 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$3 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$3.call(b, prop))
+      __defNormalProp$3(a, prop, b[prop]);
+  if (__getOwnPropSymbols$3)
+    for (var prop of __getOwnPropSymbols$3(b)) {
+      if (__propIsEnum$3.call(b, prop))
+        __defNormalProp$3(a, prop, b[prop]);
+    }
+  return a;
+};
+function guessSerializerType(raw) {
+  return raw == null ? "any" : raw instanceof Set ? "set" : raw instanceof Map ? "map" : raw instanceof Date ? "date" : typeof raw === "boolean" ? "boolean" : typeof raw === "string" ? "string" : typeof raw === "object" ? "object" : Number.isNaN(raw) ? "any" : "number";
+}
+const StorageSerializers = {
+  boolean: {
+    read: (v) => v === "true",
+    write: String
+  },
+  object: {
+    read: (v) => JSON.parse(v),
+    write: (v) => JSON.stringify(v)
+  },
+  number: {
+    read: (v) => Number.parseFloat(v),
+    write: String
+  },
+  any: {
+    read: (v) => v,
+    write: String
+  },
+  string: {
+    read: (v) => v,
+    write: String
+  },
+  map: {
+    read: (v) => new Map(JSON.parse(v)),
+    write: (v) => JSON.stringify([...v.entries()])
+  },
+  set: {
+    read: (v) => new Set(JSON.parse(v)),
+    write: (v) => JSON.stringify([...v])
+  },
+  date: {
+    read: (v) => new Date(v),
+    write: (v) => v.toISOString()
+  }
+};
+const store = {};
+function useStorage(key, initialValue, options = {}) {
+  var _a;
+  const {
+    flush = "pre",
+    deep = true,
+    listenToStorageChanges = true,
+    mergeDefaults = false,
+    shallow = false,
+    eventFilter,
+    onError = (error) => console.error(error),
+    initOnMounted,
+    storage = uni
+  } = options;
+  const rawInit = resolveUnref(initialValue);
+  const type = guessSerializerType(rawInit);
+  const hasStore = !!store[key];
+  const data = hasStore ? store[key] : (shallow ? shallowRef : ref)(rawInit);
+  const serializer = (_a = options.serializer) != null ? _a : StorageSerializers[type];
+  data.key = key;
+  data.type = type;
+  data.serializer = serializer;
+  data.isUpdating = false;
+  data.default = rawInit;
+  data.read = readStorage;
+  data.write = writeStorageImmediately;
+  data.refresh = () => {
+    data.read();
+    return data;
+  };
+  data.sync = () => data.write(data.value);
+  data.clearTimer = clearTimer;
+  data.updateByRaw = updateByRaw;
+  store[key] = data;
+  if (hasStore) {
+    return data;
+  }
+  if (initOnMounted) {
+    tryOnMounted(data.read);
+  } else {
+    data.read();
+  }
+  data.watch = pausableWatch(data, () => !data.isUpdating && writeStorage(data.value), { flush, deep, eventFilter });
+  if (listenToStorageChanges) {
+    listenDataChange(data);
+  }
+  tryOnScopeDispose$1(clearTimer);
+  function clearTimer() {
+    data.timer && clearTimeout(data.timer);
+  }
+  function writeStorage(val) {
+    clearTimer();
+    if (flush === "sync") {
+      writeStorageImmediately(val);
+      return;
+    }
+    data.timer = setTimeout(() => writeStorageImmediately(val), 100);
+  }
+  function writeStorageImmediately(val) {
+    clearTimer();
+    if (data.isUpdating) {
+      return;
+    }
+    try {
+      data.isUpdating = true;
+      if (val == null) {
+        storage.removeStorage({
+          key,
+          fail: (error) => onError(error)
+        });
+        clearTimer();
+        return;
+      }
+      const serialized = data.serializer.write(val);
+      storage.setStorage({
+        key,
+        data: serialized,
+        fail: (error) => onError(error)
+      });
+    } catch (error) {
+      onError(error);
+    } finally {
+      data.isUpdating = false;
+    }
+  }
+  function updateByRaw(raw) {
+    try {
+      if (raw == null) {
+        data.value = data.default;
+        return;
+      }
+      const value = data.serializer.read(raw);
+      if (mergeDefaults) {
+        if (typeof mergeDefaults === "function") {
+          data.value = mergeDefaults(value, data.default);
+          return;
+        }
+        if (type === "object" && !Array.isArray(value)) {
+          data.value = __spreadValues$3(__spreadValues$3({}, data.default), value);
+          return;
+        }
+      }
+      data.value = value;
+    } catch (err) {
+      onError(err);
+    }
+  }
+  function readStorage() {
+    storage.getStorage({
+      key: data.key,
+      success: ({ data: raw }) => {
+        updateByRaw(raw);
+      },
+      fail: () => {
+        updateByRaw(void 0);
+      }
+    });
+    return data.value;
+  }
+  return data;
+}
+function listenDataChange(data) {
+  useInterceptor("setStorage", {
+    invoke: (args) => {
+      if (args[0].key !== data.key) {
+        return false;
+      }
+      if (!data.isUpdating) {
+        data.isUpdating = true;
+        const raw = typeof args[0].data !== "string" && args[0].data != null ? JSON.stringify(args[0].data) : args[0].data;
+        data.updateByRaw(raw);
+        data.isUpdating = false;
+      }
+    }
+  });
+  useInterceptor("removeStorage", {
+    invoke: (args) => {
+      if (args[0].key !== data.key) {
+        return false;
+      }
+      if (!data.isUpdating) {
+        data.isUpdating = true;
+        data.value = void 0;
+        data.isUpdating = false;
+      }
+    }
+  });
+  useInterceptor("clearStorage", {
+    complete: () => {
+      data.isUpdating = true;
+      data.value = void 0;
+      data.isUpdating = false;
+    }
+  });
+  useInterceptor("setStorageSync", {
+    invoke: (args) => {
+      if (args[0] !== data.key) {
+        return false;
+      }
+      if (!data.isUpdating) {
+        data.isUpdating = true;
+        const raw = typeof args[1] !== "string" && args[1] != null ? JSON.stringify(args[1]) : args[1];
+        data.updateByRaw(raw);
+        data.isUpdating = false;
+      }
+    }
+  });
+  useInterceptor("removeStorageSync", {
+    invoke: (args) => {
+      if (args[0] !== data.key) {
+        return false;
+      }
+      if (!data.isUpdating) {
+        data.isUpdating = true;
+        data.value = void 0;
+        data.isUpdating = false;
+      }
+    }
+  });
+  useInterceptor("clearStorageSync", {
+    complete: () => {
+      data.isUpdating = true;
+      data.value = void 0;
+      data.isUpdating = false;
+    }
+  });
+}
+
+var __defProp$2 = Object.defineProperty;
+var __getOwnPropSymbols$2 = Object.getOwnPropertySymbols;
+var __hasOwnProp$2 = Object.prototype.hasOwnProperty;
+var __propIsEnum$2 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$2 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$2.call(b, prop))
+      __defNormalProp$2(a, prop, b[prop]);
+  if (__getOwnPropSymbols$2)
+    for (var prop of __getOwnPropSymbols$2(b)) {
+      if (__propIsEnum$2.call(b, prop))
+        __defNormalProp$2(a, prop, b[prop]);
+    }
+  return a;
+};
+var __objRest = (source, exclude) => {
+  var target = {};
+  for (var prop in source)
+    if (__hasOwnProp$2.call(source, prop) && exclude.indexOf(prop) < 0)
+      target[prop] = source[prop];
+  if (source != null && __getOwnPropSymbols$2)
+    for (var prop of __getOwnPropSymbols$2(source)) {
+      if (exclude.indexOf(prop) < 0 && __propIsEnum$2.call(source, prop))
+        target[prop] = source[prop];
+    }
+  return target;
+};
+let UniStorage;
+function initUniStorageIfNotInited() {
+  if (UniStorage) {
+    return;
+  }
+  UniStorage = parseUniStorageLike({
+    getStorageSync: uni.getStorageSync,
+    setStorageSync: uni.setStorageSync,
+    removeStorageSync: uni.removeStorageSync
+  });
+}
+function parseUniStorageLike(storageSync) {
+  const storage = {
+    getStorage: ({ key, success, fail, complete }) => {
+      try {
+        const data = storageSync.getStorageSync(key);
+        success && success({ data });
+      } catch (error) {
+        fail && fail(error);
+      } finally {
+        complete && complete(void 0);
+      }
+    },
+    setStorage: ({ key, data, success, fail, complete }) => {
+      try {
+        const raw = storageSync.setStorageSync(key, data);
+        success && success({ data: raw });
+      } catch (error) {
+        fail && fail(error);
+      } finally {
+        complete && complete(void 0);
+      }
+    },
+    removeStorage: ({ key, success, fail, complete }) => {
+      try {
+        storageSync.removeStorageSync(key);
+        success && success({ data: void 0 });
+      } catch (error) {
+        fail && fail(error);
+      } finally {
+        complete && complete(void 0);
+      }
+    }
+  };
+  return storage;
+}
+function useStorageSync(key, initialValue, options = {}) {
+  initUniStorageIfNotInited();
+  const _a = options, { flush = "sync", storage } = _a, others = __objRest(_a, ["flush", "storage"]);
+  const storageAsync = storage ? parseUniStorageLike(storage) : UniStorage;
+  return useStorage(key, initialValue, __spreadValues$2({ flush, storage: storageAsync }, others));
+}
+
+var __defProp$1 = Object.defineProperty;
+var __getOwnPropSymbols$1 = Object.getOwnPropertySymbols;
+var __hasOwnProp$1 = Object.prototype.hasOwnProperty;
+var __propIsEnum$1 = Object.prototype.propertyIsEnumerable;
+var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues$1 = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp$1.call(b, prop))
+      __defNormalProp$1(a, prop, b[prop]);
+  if (__getOwnPropSymbols$1)
+    for (var prop of __getOwnPropSymbols$1(b)) {
+      if (__propIsEnum$1.call(b, prop))
+        __defNormalProp$1(a, prop, b[prop]);
+    }
+  return a;
+};
+function useToast(options) {
+  return function showToast(newOptions) {
+    uni.showToast(
+      __spreadValues$1(__spreadValues$1({}, resolveUnref(options)), resolveUnref(newOptions))
+    );
+    return function hideToast() {
+      return uni.hideToast();
+    };
+  };
+}
+
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+function useUploadFile(...args) {
+  const url = typeof args[0] === "string" ? args[0] : void 0;
+  const argsPlaceholder = isString(url) ? 1 : 0;
+  const defaultOptions = {
+    immediate: !!argsPlaceholder,
+    shallow: true
+  };
+  let defaultConfig = {};
+  let options = defaultOptions;
+  if (args.length > 0 + argsPlaceholder) {
+    defaultConfig = args[0 + argsPlaceholder];
+  }
+  if (args.length === 3) {
+    options = args[0 + argsPlaceholder];
+  }
+  const {
+    initialData,
+    shallow,
+    onSuccess = noop,
+    onError = noop,
+    onFinish = noop,
+    immediate,
+    resetOnExecute = false
+  } = options;
+  const task = shallowRef();
+  const response = shallowRef();
+  const data = shallow ? shallowRef() : ref();
+  const isFinished = ref(false);
+  const isLoading = ref(false);
+  const isAborted = ref(false);
+  const error = shallowRef();
+  const abort = (message) => {
+    var _a;
+    if (isFinished.value || !isLoading.value) {
+      return;
+    }
+    (_a = task.value) == null ? void 0 : _a.abort(message);
+    isAborted.value = true;
+    isLoading.value = false;
+    isFinished.value = false;
+  };
+  const loading = (loading2) => {
+    isLoading.value = loading2;
+    isFinished.value = !loading2;
+  };
+  const resetData = () => {
+    if (resetOnExecute) {
+      data.value = initialData;
+    }
+  };
+  const promise = {
+    then: (...args2) => waitUntilFinished().then(...args2),
+    catch: (...args2) => waitUntilFinished().catch(...args2)
+  };
+  let executeCounter = 0;
+  const execute = (executeUrl = url, config = {}) => {
+    error.value = void 0;
+    const _url = typeof executeUrl === "string" ? executeUrl : url != null ? url : config.url;
+    if (_url === void 0) {
+      error.value = {
+        errMsg: "Invalid URL provided for uni.request."
+      };
+      isFinished.value = true;
+      return promise;
+    }
+    resetData();
+    abort();
+    loading(true);
+    executeCounter += 1;
+    const currentExecuteCounter = executeCounter;
+    isAborted.value = false;
+    const _config = __spreadProps(__spreadValues(__spreadValues({}, defaultConfig), typeof executeUrl === "object" ? executeUrl : config), {
+      url: _url
+    });
+    task.value = uni.uploadFile(__spreadProps(__spreadValues({}, _config), {
+      success: (r) => {
+        var _a;
+        if (isAborted.value) {
+          return;
+        }
+        (_a = _config.success) == null ? void 0 : _a.call(_config, r);
+        response.value = r;
+        const result2 = r.data;
+        data.value = result2;
+        onSuccess(result2);
+      },
+      fail: (e) => {
+        var _a;
+        (_a = _config.fail) == null ? void 0 : _a.call(_config, e);
+        error.value = e;
+        onError(e);
+      },
+      complete: (r) => {
+        var _a;
+        (_a = _config.complete) == null ? void 0 : _a.call(_config, r);
+        onFinish(r);
+        if (currentExecuteCounter === executeCounter) {
+          loading(false);
+        }
+      }
+    }));
+    return promise;
+  };
+  if (immediate && url) {
+    execute();
+  }
+  const result = {
+    task,
+    response,
+    data,
+    error,
+    isFinished,
+    isLoading,
+    cancel: abort,
+    isAborted,
+    isCanceled: isAborted,
+    abort,
+    execute
+  };
+  function waitUntilFinished() {
+    return new Promise((resolve, reject) => {
+      until(isFinished).toBe(true).then(() => error.value ? reject(error.value) : resolve(result));
+    });
+  }
+  return __spreadValues(__spreadValues({}, result), promise);
+}
+
+function useVisible() {
+  const isVisible = ref(true);
+  tryOnShow(() => {
+    isVisible.value = true;
+  });
+  tryOnHide(() => {
+    isVisible.value = false;
+  });
+  return isVisible;
+}
+
+const UniUse = {
+  __proto__: null,
+  guessSerializerType: guessSerializerType,
+  tryOnBackPress: tryOnBackPress,
+  tryOnHide: tryOnHide,
+  tryOnInit: tryOnInit,
+  tryOnLoad: tryOnLoad,
+  tryOnReady: tryOnReady,
+  tryOnScopeDispose: tryOnScopeDispose,
+  tryOnShow: tryOnShow,
+  tryOnUnload: tryOnUnload,
+  tryParseJson: tryParseJson,
+  useActionSheet: useActionSheet,
+  useClipboardData: useClipboardData,
+  useDownloadFile: useDownloadFile,
+  useGlobalData: useGlobalData,
+  useInterceptor: useInterceptor,
+  useLoading: useLoading,
+  useModal: useModal,
+  useNetwork: useNetwork,
+  useOnline: useOnline,
+  usePage: usePage,
+  usePageScroll: usePageScroll,
+  usePages: usePages,
+  usePreferredDark: usePreferredDark,
+  usePreferredLanguage: usePreferredLanguage,
+  usePrevPage: usePrevPage,
+  usePrevRoute: usePrevRoute,
+  useProvider: useProvider,
+  useQuery: useQuery,
+  useRequest: useRequest,
+  useRoute: useRoute,
+  useRouter: useRouter,
+  useScanCode: useScanCode,
+  useScreenBrightness: useScreenBrightness,
+  useSelectorQuery: useSelectorQuery,
+  useSocket: useSocket,
+  useStorage: useStorage,
+  useStorageAsync: useStorage,
+  useStorageSync: useStorageSync,
+  useToast: useToast,
+  useUploadFile: useUploadFile,
+  useVisible: useVisible
+};
+
+const UniUseAutoImports = {
+  [name]: Object.keys(UniUse)
+};
+function uniuseAutoImports(options = {}) {
+  let exports = Object.keys(UniUse);
+  if (options.only) {
+    exports = exports.filter((fn) => options.only.includes(fn));
+  }
+  if (options.except) {
+    exports = exports.filter((fn) => !options.except.includes(fn));
+  }
+  return {
+    [name]: exports
+  };
+}
+
+export { UniUseAutoImports, guessSerializerType, tryOnBackPress, tryOnHide, tryOnInit, tryOnLoad, tryOnReady, tryOnScopeDispose, tryOnShow, tryOnUnload, tryParseJson, uniuseAutoImports, useActionSheet, useClipboardData, useDownloadFile, useGlobalData, useInterceptor, useLoading, useModal, useNetwork, useOnline, usePage, usePageScroll, usePages, usePreferredDark, usePreferredLanguage, usePrevPage, usePrevRoute, useProvider, useQuery, useRequest, useRoute, useRouter, useScanCode, useScreenBrightness, useSelectorQuery, useSocket, useStorage, useStorage as useStorageAsync, useStorageSync, useToast, useUploadFile, useVisible };

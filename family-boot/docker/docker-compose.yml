@@ -1,0 +1,34 @@
+name: family
+
+services:
+  family-boot:
+    image: registry.cn-hangzhou.aliyuncs.com/mingus/family:${IMAGE_TAG:-latest}
+    pull_policy: always
+    container_name: family-boot
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    env_file:
+      - ../.env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:8000:8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: ${FAMILY_DOCKER_LOG_MAX_SIZE:-100m}
+        max-file: ${FAMILY_DOCKER_LOG_MAX_FILE:-3}
+    volumes:
+      - /data/mingus/family/logs:/logs/family-boot
+      - /data/mingus/family/uploadPath:/app/uploadPath
+    networks:
+      - shared
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  shared:
+    name: mingus-net
+    external: true

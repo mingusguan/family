@@ -1,0 +1,90 @@
+declare const builtInPlatforms: readonly ["app", "app-plus", "h5", "mp-360", "mp-alipay", "mp-baidu", "mp-jd", "mp-kuaishou", "mp-lark", "mp-qq", "mp-toutiao", "mp-weixin", "quickapp-webview", "quickapp-webview-huawei", "quickapp-webview-union"];
+
+type BuiltInPlatForm = typeof builtInPlatforms[number];
+type UtsPlatform = BuiltInPlatForm | 'app-android' | 'app-ios' | 'web';
+type AppPlatform = 'android' | 'ios' | undefined;
+type SubPlatform = 'quickapp-webview-huawei' | 'quickapp-webview-union' | undefined;
+
+/** Value of `process.env.UNI_PLATFORM` */
+declare const platform: "app" | "app-plus" | "h5" | "mp-360" | "mp-alipay" | "mp-baidu" | "mp-jd" | "mp-kuaishou" | "mp-lark" | "mp-qq" | "mp-toutiao" | "mp-weixin" | "quickapp-webview" | "quickapp-webview-huawei" | "quickapp-webview-union";
+/** Value of `process.env.UNI_UTS_PLATFORM` */
+declare const utsPlatform: UtsPlatform;
+/** Value of `process.env.UNI_APP_PLATFORM` */
+declare const appPlatform: AppPlatform;
+/** Value of `process.env.UNI_SUB_PLATFORM` */
+declare const subPlatform: SubPlatform;
+/** Detect if `process.env.UNI_PLATFORM` is `H5` */
+declare const isH5: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `APP` */
+declare const isApp: boolean;
+/** Detect if `process.env.UNI_APP_PLATFORM` is `android` or if `process.env.UNI_UTS_PLATFORM` is "app-android" */
+declare const isAppAndroid: boolean;
+/** Detect if `process.env.UNI_APP_PLATFORM` is `ios` or if `process.env.UNI_UTS_PLATFORM` is "app-ios" */
+declare const isAppIOS: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `小程序` */
+declare const isMp: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `微信小程序` */
+declare const isMpWeixin: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `支付宝小程序` */
+declare const isMpAlipay: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `百度小程序` */
+declare const isMpBaidu: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `快手小程序` */
+declare const isMpKuaishou: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `QQ小程序` */
+declare const isMpQQ: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `头条小程序` */
+declare const isMpToutiao: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `快应用` */
+declare const isQuickapp: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `快应用联盟` */
+declare const isQuickappUnion: boolean;
+/** Detect if `process.env.UNI_PLATFORM` is `快应用华为` */
+declare const isQuickappHuawei: boolean;
+
+/** Detect if `VUE_APP_DARK_MODE` environment variable is set */
+declare const hasDarkMode: boolean;
+/** Detect if `SOURCEMAP` environment variable is set */
+declare const hasSourcemap: boolean;
+/** Detect if `UNI_MP_PLUGIN` environment variable is set */
+declare const isMpPlugin: boolean;
+/** Detect if `UNI_MINIMIZE` environment variable is set */
+declare const isMinimize: boolean;
+/** Detect if `UNI_SSR_CLIENT` environment variable is set  */
+declare const isSSRClient: boolean;
+/** Detect if `UNI_SSR_SERVER` environment variable is set  */
+declare const isSSRServer: boolean;
+
+/** Value of `process.env.UNI_COMPILER` */
+declare const compiler: "vue" | "nvue";
+/** Value of `process.env.UNI_NVUE_COMPILER` */
+declare const nvueCompiler: "vue" | "uni-app" | undefined;
+/** Value of `process.env.UNI_NVUE_STYLE_COMPILER` */
+declare const nvueStyleCompiler: "uni-app" | undefined;
+/** Value of `process.env.UNI_COMPILER_VERSION` */
+declare const compilerVersion: string;
+/** Value of `process.env.UNI_COMPILER_VERSION_TYPE` */
+declare const compilerVersionType: "a" | "r";
+
+/** Value of `process.env.UNI_CLI_CONTEXT` */
+declare const cliContext: string;
+/** Value of `process.env.UNI_INPUT_DIR` */
+declare const inputDir: string;
+/** Value of `process.env.UNI_OUTPUT_DIR` */
+declare const outputDir: string;
+/** Value of `process.env.STAT_TITLE_JSON` */
+declare const statTitleJson: Record<string, string>;
+/** Value of `process.env.UNI_CUSTOM_CONTEXT` */
+declare const customContext: string | undefined;
+/** Value of `process.env.UNI_CUSTOM_SCRIPT` */
+declare const customScript: string | undefined;
+/** Value of `process.env.UNI_CUSTOM_DEFINE` */
+declare const customDefine: string | undefined;
+/** Value of `process.env.UNI_SUBPACKAGE` */
+declare const subpackage: string | undefined;
+/** Value of `process.env.UNI_RENDERER` */
+declare const renderer: "native" | undefined;
+/** Value of `process.env.UNI_RENDERER_NATIVE` */
+declare const rendererNative: "appService" | "pages" | undefined;
+
+export { type AppPlatform, type BuiltInPlatForm, type SubPlatform, type UtsPlatform, appPlatform, builtInPlatforms, cliContext, compiler, compilerVersion, compilerVersionType, customContext, customDefine, customScript, hasDarkMode, hasSourcemap, inputDir, isApp, isAppAndroid, isAppIOS, isH5, isMinimize, isMp, isMpAlipay, isMpBaidu, isMpKuaishou, isMpPlugin, isMpQQ, isMpToutiao, isMpWeixin, isQuickapp, isQuickappHuawei, isQuickappUnion, isSSRClient, isSSRServer, nvueCompiler, nvueStyleCompiler, outputDir, platform, renderer, rendererNative, statTitleJson, subPlatform, subpackage, utsPlatform };

@@ -1,0 +1,1205 @@
+import { onBackPress, onHide, onInit, onLoad, onReady, onShow, onUnload } from '@dcloudio/uni-app';
+import * as vue from 'vue';
+import { Ref, ShallowRef, MaybeRefOrGetter as MaybeRefOrGetter$1, ComputedRef } from 'vue';
+import { ConfigurableEventFilter, ConfigurableFlush, RemovableRef, Fn, ConfigurableFlushSync } from '@vueuse/core';
+import { AppJson } from '@dcloudio/uni-cli-shared';
+
+interface TryOnBackPressOptions {
+    /**
+     * 最大尝试次数
+     *
+     * @default 3
+     */
+    retry?: number;
+    /**
+     * 尝试间隔时长，单位 ms
+     *
+     * @default 500
+     */
+    interval?: number;
+}
+type OnBackPressParameters = Parameters<typeof onBackPress>;
+/** 尝试绑定 onBackPress 超出尝试次数将调用 onError */
+declare function tryOnBackPress(hook: OnBackPressParameters[0], target?: OnBackPressParameters[1], options?: TryOnBackPressOptions): Promise<void>;
+
+type MaybeRef<T> = T | Ref<T>;
+type MaybeRefOrGetter<T> = MaybeRef<T> | (() => T);
+type MaybeComputedRef<T> = MaybeRefOrGetter<T>;
+type RequiredProperty<T, K extends keyof T> = T & {
+    [P in K]-?: T[P];
+};
+type RequiredOnly<T, K extends keyof T> = RequiredProperty<Partial<T>, K>;
+interface TryOptions {
+    /**
+     * 最大尝试次数
+     *
+     * @default 3
+     */
+    retry?: number;
+    /**
+     * 尝试间隔时长，单位 ms
+     *
+     * @default 500
+     */
+    interval?: number;
+    /**
+     * 当超时时是否立即执行， 值为false时将在最后无法运行时抛出异常
+     *
+     * @default true
+     */
+    runFinally?: boolean;
+}
+
+type OnHideParameters = Parameters<typeof onHide>;
+type TryOnHideOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onHide
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnHide(hook: OnHideParameters[0], target?: OnHideParameters[1], options?: TryOnHideOptions): Promise<void>;
+
+type OnInitParameters = Parameters<typeof onInit>;
+type TryOnInitOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onInit
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnInit(hook: OnInitParameters[0], target?: OnInitParameters[1], options?: TryOnInitOptions): Promise<void>;
+
+type OnLoadParameters = Parameters<typeof onLoad>;
+type TryOnLoadOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onLoad
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnLoad(hook: OnLoadParameters[0], target?: OnLoadParameters[1], options?: TryOnLoadOptions): Promise<void>;
+
+type OnReadyParameters = Parameters<typeof onReady>;
+type TryOnReadyOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onReady
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnReady(hook: OnReadyParameters[0], target?: OnReadyParameters[1], options?: TryOnReadyOptions): Promise<void>;
+
+/**
+ * Call onScopeDispose() if it's inside an effect scope lifecycle, if not, do nothing
+ *
+ * @param fn
+ */
+declare function tryOnScopeDispose(fn: () => void): boolean;
+
+type OnShowParameters = Parameters<typeof onShow>;
+type TryOnShowOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onShow
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnShow(hook: OnShowParameters[0], target?: OnShowParameters[1], options?: TryOnShowOptions): Promise<void>;
+
+type OnUnloadParameters = Parameters<typeof onUnload>;
+type TryOnUnloadOptions = TryOptions;
+/**
+ * 尝试获取组件生命周期，并调用 onUnload
+ *
+ * 超过重试次数，根据 runFinally 直接执行或抛出异常
+ */
+declare function tryOnUnload(hook: OnUnloadParameters[0], target?: OnUnloadParameters[1], options?: TryOnUnloadOptions): Promise<void>;
+
+interface UniShowActionSheetOptions extends Omit<UniApp.ShowActionSheetOptions, 'itemList'> {
+    /** 文字数组 */
+    itemList: string[];
+}
+type ShowActionSheetOptions = MaybeComputedRef<UniShowActionSheetOptions>;
+type UseActionSheetOptions = ShowActionSheetOptions;
+/**
+ * 返回一个方法，调用后从底部向上弹出操作菜单
+ *
+ * https://uniapp.dcloud.net.cn/api/ui/prompt.html#showactionsheet
+ */
+declare function useActionSheet(options?: UseActionSheetOptions): (newOptions?: ShowActionSheetOptions) => Promise<UniApp.ShowActionSheetRes>;
+
+interface UseClipboardDataOptions extends ConfigurableEventFilter, ConfigurableFlush {
+    /**
+     * 操作剪切板数据后是否显示 toast
+     *
+     * @default true
+     */
+    showToast?: boolean;
+    /**
+     * 是否监听 setClipboardData 引起的剪切板变化
+     *
+     * @default true
+     */
+    listenToClipboardDataChanges?: boolean;
+    /**
+     * 错误回调
+     *
+     * 默认用 `console.error` 打印错误
+     */
+    onError?: (error: unknown) => void;
+}
+/**
+ * 剪切板
+ *
+ * https://uniapp.dcloud.net.cn/api/system/clipboard.html
+ */
+declare function useClipboardData(initialValue: MaybeComputedRef<string>, options?: UseClipboardDataOptions): Ref<string, string>;
+
+/** 对标 @vueuse/core v10.7.1 useAxios */
+interface UseDownloadFileReturn<T> {
+    task: ShallowRef<UniApp.DownloadTask | undefined>;
+    /** uni.downloadFile 响应 */
+    response: ShallowRef<UniApp.DownloadSuccessData | undefined>;
+    /** uni.downloadFile 响应内的数据 */
+    data: Ref<T | undefined>;
+    /** 下载是否完成 */
+    isFinished: Ref<boolean>;
+    /** 下载是否进行中 */
+    isLoading: Ref<boolean>;
+    /** 下载是否中止 */
+    isAborted: Ref<boolean>;
+    /** 下载间发生的错误 */
+    error: ShallowRef<UniApp.GeneralCallbackResult | undefined>;
+    /** 中止当前下载 */
+    abort: (message?: string | undefined) => void;
+    /** abort 别名 */
+    cancel: (message?: string | undefined) => void;
+    /** isAborted 别名 */
+    isCanceled: Ref<boolean>;
+}
+interface StrictUseDownloadFileReturn<T> extends UseDownloadFileReturn<T> {
+    /** 手动开始下载 */
+    execute: (url?: string | UniApp.DownloadFileOption, config?: UniApp.DownloadFileOption) => PromiseLike<StrictUseDownloadFileReturn<T>>;
+}
+interface EasyUseDownloadFileReturn<T> extends UseDownloadFileReturn<T> {
+    /** 手动开始下载 */
+    execute: (url: string, config?: UniApp.DownloadFileOption) => PromiseLike<EasyUseDownloadFileReturn<T>>;
+}
+type OverallUseDownloadFileReturn<T> = StrictUseDownloadFileReturn<T> | EasyUseDownloadFileReturn<T>;
+interface UseDownloadFileOptions<T = any> {
+    /** 是否自动开始下载 */
+    immediate?: boolean;
+    /**
+     * 是否使用 shallowRef
+     *
+     * @default true
+     */
+    shallow?: boolean;
+    /** 下载错误时的回调 */
+    onError?: (e: UniApp.GeneralCallbackResult) => void;
+    /** 下载成功时的回调 */
+    onSuccess?: (data: T) => void;
+    /** 要使用的初始化数据 */
+    initialData?: T;
+    /** 是否在执行承诺之前将状态设置为初始状态 */
+    resetOnExecute?: boolean;
+    /** 下载结束时的回调 */
+    onFinish?: (result?: UniApp.GeneralCallbackResult) => void;
+}
+declare function useDownloadFile<T = any>(url: string, config?: UniApp.DownloadFileOption, options?: UseDownloadFileOptions): StrictUseDownloadFileReturn<T> & PromiseLike<StrictUseDownloadFileReturn<T>>;
+declare function useDownloadFile<T = any>(config?: UniApp.DownloadFileOption): EasyUseDownloadFileReturn<T> & PromiseLike<EasyUseDownloadFileReturn<T>>;
+
+interface UseGlobalDataOptions<T extends object | undefined> extends ConfigurableEventFilter, ConfigurableFlush {
+    /**
+     * 当 globalData 还没有已有值时，是否写入 globalData
+     *
+     * @default true
+     */
+    writeDefaults?: boolean;
+    /**
+     * 是否合并默认值和已有值
+     *
+     * 当设置为 true 时，浅合并对象
+     *
+     * 你也可以传一个方法来自定义合并
+     *
+     * @default false
+     */
+    mergeDefaults?: boolean | ((nextValue: T, prevValue: T) => T);
+    /**
+     * 是否使用 shallowRef
+     *
+     * @default false
+     */
+    shallow?: boolean;
+    /**
+     * 是否监听深层变化
+     *
+     * @default true
+     */
+    deep?: boolean;
+}
+/**
+ * globalData
+ *
+ * https://uniapp.dcloud.net.cn/collocation/App.html#globaldata
+ */
+declare function useGlobalData<T extends object | undefined>(initialValue: MaybeComputedRef<T>, options?: UseGlobalDataOptions<T>): RemovableRef<T>;
+
+type FunctionKeys<T> = {
+    [K in keyof T]: T[K] extends Function ? K : never;
+}[keyof T];
+type UniMethod = FunctionKeys<Uni>;
+interface InterceptorOptions<F extends UniMethod = UniMethod> {
+    /** 返回 false 则终止执行 */
+    invoke?: (args: Parameters<Uni[F]>) => void | boolean;
+    success?: Parameters<Uni[F]>[0]['success'] | ReturnType<Uni[F]>;
+    fail?: Parameters<Uni[F]>[0]['fail'] | ((err: any) => void);
+    complete?: Parameters<Uni[F]>[0]['complete'] | (() => void);
+}
+/**
+ * 注册拦截器，在活跃的 effect 作用域停止时自动移除
+ *
+ * https://cn.vuejs.org/api/reactivity-advanced.htmlSeffectscope
+ */
+declare function useInterceptor<F extends UniMethod>(method: F, interceptor: InterceptorOptions<F>): () => void;
+
+interface UniShowLoadingOptions extends UniApp.ShowLoadingOptions {
+}
+type ShowLoadingOptions = MaybeComputedRef<UniShowLoadingOptions>;
+type UseLoadingOptions = ShowLoadingOptions;
+declare function hideLoading(): void;
+/**
+ * 返回一个对象，包含两个方法
+ *
+ * 其中`showLoading` 调用后显示加载提示框，`hideLoading` 调用后隐藏加载提示框
+ *
+ * https://uniapp.dcloud.net.cn/api/ui/prompt.html#showloading
+ */
+declare function useLoading(options?: UseLoadingOptions): {
+    /**
+     * 显示加载提示框
+     *
+     * https://uniapp.dcloud.net.cn/api/ui/prompt.html#showloading
+     */
+    showLoading: (newOptions?: ShowLoadingOptions) => typeof hideLoading;
+    /**
+     * 隐藏加载提示框
+     *
+     * https://uniapp.dcloud.net.cn/api/ui/prompt.html#hideloading
+     */
+    hideLoading: typeof hideLoading;
+};
+
+interface UniShowModalOptions extends UniApp.ShowModalOptions {
+}
+type ShowModalOptions = MaybeComputedRef<UniShowModalOptions>;
+type UseModalOptions = ShowModalOptions;
+/**
+ * 返回一个方法，调用后显示模态弹窗
+ *
+ * https://uniapp.dcloud.net.cn/api/ui/prompt?id=showmodal
+ */
+declare function useModal(options?: UseModalOptions): (newOptions?: ShowModalOptions) => Promise<UniApp.ShowModalRes>;
+
+type NetworkType = 'ethernet' | 'none' | 'wifi' | 'unknown' | '2g' | '3g' | '4g' | '5g';
+/**
+ * 获取网络信息
+ *
+ * https://uniapp.dcloud.net.cn/api/system/network.html
+ */
+declare function useNetwork(): {
+    type: vue.Ref<NetworkType, NetworkType>;
+    isWifi: vue.ComputedRef<boolean>;
+    is2g: vue.ComputedRef<boolean>;
+    is3g: vue.ComputedRef<boolean>;
+    is4g: vue.ComputedRef<boolean>;
+    is5g: vue.ComputedRef<boolean>;
+    isEthernet: vue.ComputedRef<boolean>;
+    isUnknown: vue.ComputedRef<boolean>;
+    isOnline: vue.ComputedRef<boolean>;
+    isOffline: vue.ComputedRef<boolean>;
+};
+
+/**
+ * 获取是否在线
+ *
+ * https://uniapp.dcloud.net.cn/api/system/network.html
+ */
+declare function useOnline(): vue.ComputedRef<boolean>;
+
+/** 获取当前页信息 */
+declare function usePage(): vue.ComputedRef<{
+    onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+    onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+    onShow?: (() => void) | undefined;
+    onReady?: (() => void) | undefined;
+    onHide?: (() => void) | undefined;
+    onUnload?: (() => void) | undefined;
+    onPullDownRefresh?: (() => void) | undefined;
+    onReachBottom?: (() => void) | undefined;
+    onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+    onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+    onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+    onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+    onResize?: ((options: Page.ResizeOption) => void) | undefined;
+    onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+    onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+    onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+    onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputClicked?: (() => void) | undefined;
+    route?: string | undefined;
+    $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+    $vm?: any;
+}>;
+
+/** 获取当前页面栈信息 */
+declare function usePages(): vue.Ref<{
+    onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+    onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+    onShow?: (() => void) | undefined;
+    onReady?: (() => void) | undefined;
+    onHide?: (() => void) | undefined;
+    onUnload?: (() => void) | undefined;
+    onPullDownRefresh?: (() => void) | undefined;
+    onReachBottom?: (() => void) | undefined;
+    onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+    onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+    onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+    onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+    onResize?: ((options: Page.ResizeOption) => void) | undefined;
+    onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+    onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+    onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+    onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputClicked?: (() => void) | undefined;
+    route?: string | undefined;
+    $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+    $vm?: any;
+}[], Page.PageInstance<any, any>[] | {
+    onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+    onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+    onShow?: (() => void) | undefined;
+    onReady?: (() => void) | undefined;
+    onHide?: (() => void) | undefined;
+    onUnload?: (() => void) | undefined;
+    onPullDownRefresh?: (() => void) | undefined;
+    onReachBottom?: (() => void) | undefined;
+    onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+    onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+    onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+    onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+    onResize?: ((options: Page.ResizeOption) => void) | undefined;
+    onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+    onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+    onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+    onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputClicked?: (() => void) | undefined;
+    route?: string | undefined;
+    $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+    $vm?: any;
+}[]>;
+
+interface UsePageScrollOptions {
+    /**
+     * 此选项不可缺！
+     * uniapp 必须在页面内检测到 onPageScroll 关键词才会注册事件。
+     * @see https://github.com/dcloudio/uni-app/issues/3099 让页面被正则捕获从而开启监听
+     */
+    onPageScroll: any;
+    /**
+     * 滚动到指定选择器
+     *
+     * @see https://uniapp.dcloud.net.cn/api/ui/scroll?id=pagescrollto
+     */
+    scrollToSelector?: MaybeRef<string>;
+    /**
+     * 滚动动画时长
+     *
+     * @default 300
+     * @see https://uniapp.dcloud.net.cn/api/ui/scroll?id=pagescrollto
+     */
+    duration?: number;
+}
+/**
+ * 页面滚动
+ *
+ * @param options 配置项
+ * @see https://uniapp.dcloud.net.cn/tutorial/page.html#onpagescroll
+ */
+declare function usePageScroll(options: UsePageScrollOptions): {
+    scrollTop: vue.WritableComputedRef<number, number>;
+    scrollToSelector: vue.Ref<string, string>;
+};
+
+/**
+ * 响应式的暗黑主题偏好
+ *
+ * https://zh.uniapp.dcloud.io/api/system/theme.html
+ *
+ * https://uniapp.dcloud.net.cn/tutorial/darkmode.html
+ */
+declare function usePreferredDark(): Readonly<vue.Ref<boolean, boolean>>;
+
+/**
+ * 响应式的语言偏好
+ *
+ * https://uniapp.dcloud.net.cn/api/ui/locale.html
+ *
+ * https://uniapp.dcloud.net.cn/tutorial/i18n
+ */
+declare function usePreferredLanguage(): Readonly<vue.Ref<string, string>>;
+
+/** 获取前一页信息 */
+declare function usePrevPage(): vue.ComputedRef<{
+    onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+    onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+    onShow?: (() => void) | undefined;
+    onReady?: (() => void) | undefined;
+    onHide?: (() => void) | undefined;
+    onUnload?: (() => void) | undefined;
+    onPullDownRefresh?: (() => void) | undefined;
+    onReachBottom?: (() => void) | undefined;
+    onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+    onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+    onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+    onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+    onResize?: ((options: Page.ResizeOption) => void) | undefined;
+    onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+    onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+    onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+    onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+    onNavigationBarSearchInputClicked?: (() => void) | undefined;
+    route?: string | undefined;
+    $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+    $vm?: any;
+}>;
+
+/** 获取前一页路由信息 */
+declare function usePrevRoute(): vue.ComputedRef<string | undefined>;
+
+interface UniGetProviderOptions extends UniApp.GetProviderOptions {
+}
+type GetProviderOptions = MaybeComputedRef<UniGetProviderOptions>;
+type UseProviderOptions = GetProviderOptions;
+/**
+ * 返回一个方法，调用后获取服务供应商
+ *
+ * https://uniapp.dcloud.net.cn/api/plugins/provider?id=getprovider
+ */
+declare function useProvider(options?: UseProviderOptions): (newOptions?: GetProviderOptions) => Promise<UniApp.GetProviderRes>;
+
+interface UseQueryOptions {
+    /**
+     * 是否自动解析 JSON 字符串
+     * @default true
+     */
+    parseJson?: boolean;
+}
+/**
+ * 尝试解析 JSON 字符串
+ * @param value 要解析的值
+ * @returns 解析后的值或原始值
+ */
+declare function tryParseJson(value: any): any;
+/**
+ * 获取页面参数
+ *
+ * @param key 可选的参数键名，如果提供则返回该键对应的值
+ * @param options 选项配置
+ * @returns 包含 query 对象和 value 的响应式数据
+ */
+declare function useQuery(key?: MaybeRefOrGetter$1<string>, options?: UseQueryOptions): {
+    query: vue.Ref<Record<string, any>, Record<string, any>>;
+    value: vue.ComputedRef<any>;
+};
+
+/** 对标 @vueuse/core v10.7.1 useAxios */
+interface UseRequestReturn<T> {
+    task: ShallowRef<UniApp.RequestTask | undefined>;
+    /** uni.request 响应 */
+    response: ShallowRef<UniApp.RequestSuccessCallbackResult | undefined>;
+    /** uni.request 响应内的数据 */
+    data: Ref<T | undefined>;
+    /** 请求是否完成 */
+    isFinished: Ref<boolean>;
+    /** 请求是否进行中 */
+    isLoading: Ref<boolean>;
+    /** 请求是否中止 */
+    isAborted: Ref<boolean>;
+    /** 请求间发生的错误 */
+    error: ShallowRef<UniApp.GeneralCallbackResult | undefined>;
+    /** 中止当前请求 */
+    abort: (message?: string | undefined) => void;
+    /** abort 别名 */
+    cancel: (message?: string | undefined) => void;
+    /** isAborted 别名 */
+    isCanceled: Ref<boolean>;
+}
+interface StrictUseRequestReturn<T> extends UseRequestReturn<T> {
+    /** 手动开始请求 */
+    execute: (url?: string | UniApp.RequestOptions, config?: UniApp.RequestOptions) => Promise<StrictUseRequestReturn<T>>;
+}
+interface EasyUseRequestReturn<T> extends UseRequestReturn<T> {
+    /** 手动开始下载 */
+    execute: (url: string, config?: UniApp.RequestOptions) => Promise<EasyUseRequestReturn<T>>;
+}
+type OverallUseRequestReturn<T> = StrictUseRequestReturn<T> | EasyUseRequestReturn<T>;
+interface UseRequestOptions<T = any> {
+    /** 是否自动开始请求 */
+    immediate?: boolean;
+    /**
+     * 是否使用 shallowRef
+     *
+     * @default true
+     */
+    shallow?: boolean;
+    /** 请求错误时的回调 */
+    onError?: (e: UniApp.GeneralCallbackResult) => void;
+    /** 请求成功时的回调 */
+    onSuccess?: (data: T) => void;
+    /** 要使用的初始化数据 */
+    initialData?: T;
+    /** 是否在执行承诺之前将状态设置为初始状态 */
+    resetOnExecute?: boolean;
+    /** 请求结束时的回调 */
+    onFinish?: (result?: UniApp.GeneralCallbackResult) => void;
+}
+declare function useRequest<T = any>(url: string | Ref<string>, config?: Partial<UniApp.RequestOptions>, options?: UseRequestOptions): StrictUseRequestReturn<T> & Promise<StrictUseRequestReturn<T>>;
+declare function useRequest<T = any>(config?: UniApp.RequestOptions, options?: UseRequestOptions): EasyUseRequestReturn<T> & Promise<EasyUseRequestReturn<T>>;
+
+/**
+ * 获取当前页路由信息
+ *
+ * @deprecated use `useRouter().currentUrl` instead
+ */
+declare function useRoute(): vue.ComputedRef<string>;
+
+/** 切换 tabbar 页面 */
+declare function switchTab(options: UniNamespace.SwitchTabOptions): Promise<any>;
+/** 重定向，并清空当前页面栈 */
+declare function reLaunch(options: UniNamespace.ReLaunchOptions): Promise<any>;
+/** 后退 */
+declare function back(options?: UniNamespace.NavigateBackOptions): Promise<any>;
+type UniTabBarItem = Exclude<AppJson['tabBar'], undefined>['list'][number];
+type TabBarItem = RequiredOnly<UniTabBarItem, 'pagePath'>;
+interface UseRouterOptions {
+    /**
+     * 是否尝试跳转 tabBar 开启后，使用 navigate / redirect 将会先尝试 tabBar
+     *
+     * @default true
+     */
+    tryTabBar?: boolean;
+    /**
+     * 全局配置，仅需要配置一次
+     * 配置 tryTabBar 开启时，会判断跳转页面
+     *
+     * 可填入 pages.json 里的 tabBar list 或仅 tabbar 的 url 数组
+     */
+    tabBarList?: Array<TabBarItem | string>;
+}
+/**
+ * 路由操作的封装
+ *
+ * UNIAPP 官方文档 @see https://uniapp.dcloud.net.cn/api/router.html
+ */
+declare function useRouter(options?: UseRouterOptions): {
+    /** 获取当前页面栈信息 */
+    pages: vue.Ref<{
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }[], Page.PageInstance<any, any>[] | {
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }[]>;
+    /** 获取当前页信息 */
+    current: vue.ComputedRef<{
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }>;
+    /** @deprecated 弃用，请使用 current */
+    page: vue.ComputedRef<{
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }>;
+    /** 获取当前页路由信息 */
+    currentUrl: vue.ComputedRef<string>;
+    /** @deprecated 弃用，请使用 currentUrl */
+    route: vue.ComputedRef<string>;
+    /** 获取前一页信息 */
+    prev: vue.ComputedRef<{
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }>;
+    /** @deprecated 弃用，请使用 prev */
+    prevPage: vue.ComputedRef<{
+        onInit?: ((query?: AnyObject | undefined) => void) | undefined;
+        onLoad?: ((query?: AnyObject | undefined) => void) | undefined;
+        onShow?: (() => void) | undefined;
+        onReady?: (() => void) | undefined;
+        onHide?: (() => void) | undefined;
+        onUnload?: (() => void) | undefined;
+        onPullDownRefresh?: (() => void) | undefined;
+        onReachBottom?: (() => void) | undefined;
+        onShareAppMessage?: ((options: Page.ShareAppMessageOption) => Page.CustomShareContent | Promise<Omit<Page.CustomShareContent, "promise">>) | undefined;
+        onShareTimeline?: (() => Page.ShareTimelineContent) | undefined;
+        onAddToFavorites?: ((options: Page.AddToFavoritesOption) => Page.CustomFavoritesContent) | undefined;
+        onPageScroll?: ((options: Page.PageScrollOption) => void) | undefined;
+        onResize?: ((options: Page.ResizeOption) => void) | undefined;
+        onTabItemTap?: ((options: Page.TabItemTapOption) => void) | undefined;
+        onNavigationBarButtonTap?: ((options: Page.NavigationBarButtonTapOption) => void) | undefined;
+        onBackPress?: ((options: Page.BackPressOption) => any) | undefined;
+        onNavigationBarSearchInputChanged?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputConfirmed?: ((event: Page.NavigationBarSearchInputEvent) => void) | undefined;
+        onNavigationBarSearchInputClicked?: (() => void) | undefined;
+        route?: string | undefined;
+        $getAppWebview?: (() => PlusWebviewWebviewObject) | undefined;
+        $vm?: any;
+    }>;
+    /** 获取前一页路由信息 */
+    prevUrl: vue.ComputedRef<string | undefined>;
+    /** @deprecated 弃用，请使用 prevUrl */
+    prevRoute: vue.ComputedRef<string | undefined>;
+    /** 切换 tabbar 页面。 */
+    switchTab: typeof switchTab;
+    /** 路由跳转 */
+    navigate: (options: UniNamespace.NavigateToOptions) => Promise<any>;
+    /** 路由重定向 */
+    redirect: (options: UniNamespace.RedirectToOptions) => Promise<any>;
+    /** 重定向，并清空当前页面栈 */
+    reLaunch: typeof reLaunch;
+    /** 后退 */
+    back: typeof back;
+};
+
+interface UniScanCodeOptions extends UniApp.ScanCodeOptions {
+}
+type ScanCodeOptions = MaybeComputedRef<UniScanCodeOptions>;
+type UseScanCodeOptions = ScanCodeOptions;
+/**
+ * 返回一个方法，调用后调起客户端扫码界面
+ *
+ * https://uniapp.dcloud.net.cn/api/system/barcode?id=scancode
+ */
+declare function useScanCode(options?: UseScanCodeOptions): (newOptions?: ScanCodeOptions) => Promise<UniApp.ScanCodeSuccessRes>;
+
+interface UseScreenBrightnessOptions extends ConfigurableEventFilter, ConfigurableFlush {
+    /**
+     * 是否监听 setScreenBrightness 引起的屏幕亮度变化
+     *
+     * @default true
+     */
+    listenToScreenBrightnessChanges?: boolean;
+    /**
+     * 错误回调
+     *
+     * 默认用 `console.error` 打印错误
+     */
+    onError?: (error: unknown) => void;
+}
+/**
+ * 屏幕亮度
+ *
+ * https://uniapp.dcloud.net.cn/api/system/brightness.html
+ */
+declare function useScreenBrightness(initialValue: MaybeComputedRef<number>, options?: UseScreenBrightnessOptions): Ref<number, number>;
+
+type SelectAll = boolean;
+type QueryResult<M extends SelectAll> = M extends true ? UniApp.NodeInfo[] : UniApp.NodeInfo;
+declare function useSelectorQuery(): {
+    query: vue.Ref<UniApp.SelectorQuery | undefined, UniApp.SelectorQuery | undefined>;
+    getQuery: () => UniApp.SelectorQuery;
+    select: (selector: string | UniApp.NodesRef, all?: SelectAll) => UniApp.NodesRef;
+    getNode: (selector: string | UniApp.NodesRef, all?: SelectAll) => UniApp.NodesRef;
+    getBoundingClientRect: <T extends boolean = false, R = QueryResult<T>>(selector: string | UniApp.NodesRef, all?: T | undefined) => Promise<R>;
+    getFields: <T_1 extends boolean = false, R_1 = QueryResult<T_1>>(selector: string | UniApp.NodesRef, fields: UniApp.NodeField, all?: T_1 | undefined) => Promise<R_1>;
+    getScrollOffset: <T_2 extends boolean = false, R_2 = QueryResult<T_2>>(selector?: string | UniApp.NodesRef) => Promise<R_2>;
+    getContext: <T_3 extends boolean = false, R_3 = QueryResult<T_3>>(selector: string | UniApp.NodesRef, all?: T_3 | undefined) => Promise<R_3>;
+};
+
+/** 对标 @vueuse/core v10.7.1 useWebSocket */
+type SocketTask = UniApp.SocketTask;
+type SocketStatus = 'OPEN' | 'CONNECTING' | 'CLOSED';
+interface UseSocketOptions {
+    onConnected?: (task: SocketTask, result: UniApp.OnSocketOpenCallbackResult) => void;
+    onClosed?: (task: SocketTask, result: UniApp.OnSocketCloseOptions) => void;
+    onError?: (task: SocketTask, error: UniApp.GeneralCallbackResult) => void;
+    onMessage?: (task: SocketTask, result: UniApp.OnSocketMessageCallbackResult) => void;
+    /**
+     * 是否每过 x 毫秒发送一次心跳信号
+     *
+     * @default false
+     */
+    heartbeat?: boolean | {
+        /**
+         * 心跳信号信息
+         *
+         * @default 'ping'
+         */
+        message?: string | ArrayBuffer;
+        /**
+         * 毫秒级时间间隔
+         *
+         * @default 1000
+         */
+        interval?: number;
+        /**
+         * 毫秒级心跳信号响应超时时间
+         *
+         * @default 1000
+         */
+        pongTimeout?: number;
+    };
+    /**
+     * 是否允许自动重连
+     *
+     * @default false
+     */
+    autoReconnect?: boolean | {
+        /**
+         * 最大重连次数
+         *
+         * 你也可以传一个方法，返回 true 表示需要重连
+         *
+         * @default -1
+         */
+        retries?: number | (() => boolean);
+        /**
+         * 毫秒级重连延迟
+         *
+         * @default 1000
+         */
+        delay?: number;
+        /** 到达最大重连次数时触发 */
+        onFailed?: Fn;
+    };
+    /**
+     * 是否自动打开连接
+     *
+     * @default true
+     */
+    immediate?: boolean;
+    /**
+     * 是否自动关闭连接
+     *
+     * @default true
+     */
+    autoClose?: boolean;
+    /**
+     * 是否多实例
+     *
+     * @default false
+     */
+    multiple?: boolean;
+    /** 头部 */
+    headers?: Record<string, any>;
+    /**
+     * 请求方法
+     *
+     * @default 'GET'
+     */
+    method?: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | 'CONNECT';
+    /**
+     * 一个或多个子协议字符串的列表
+     *
+     * @default [ ]
+     */
+    protocols?: string[];
+}
+interface UseSocketReturn<T> {
+    /** websocket 收到的最新数据的引用，可以观察到对传入信息的响应 */
+    data: Ref<T | null>;
+    /** 当前 websocket 状态，只能是 OPEN、CONNECTING 和 CLOSED 之一 */
+    status: Ref<SocketStatus>;
+    /** 当前 websocket 是否处于 OPEN 状态 */
+    isOpen: ComputedRef<boolean>;
+    /** 当前 websocket 是否处于 CONNECTING 状态 */
+    isConnecting: ComputedRef<boolean>;
+    /** 当前 websocket 是否处于 CLOSED 状态 */
+    isClosed: ComputedRef<boolean>;
+    /** 关闭 websocket 连接 */
+    close: SocketTask['close'];
+    /**
+     * 打开 websocket 连接
+     *
+     * 如果存在已打开的 websocket 连接，会先关闭它再打开一个新的连接
+     */
+    open: Fn;
+    /**
+     * 发送数据
+     *
+     * @param data
+     * @param useBuffer 当 websocket 连接尚未打开时，是否把数据存储在 buffer 中并在连接打开时发送它们。默认为 true。
+     */
+    send: (data: string | ArrayBuffer, useBuffer?: boolean) => boolean;
+    /** SocketTask 实例引用 */
+    task: Ref<SocketTask | undefined>;
+}
+/**
+ * 响应式的 Socket 客户端
+ *
+ * https://uniapp.dcloud.net.cn/api/request/websocket.html
+ */
+declare function useSocket<Data = any>(url: MaybeComputedRef<string | URL | undefined>, options?: UseSocketOptions): UseSocketReturn<Data>;
+
+type UniStorageLike = Pick<Uni, 'getStorage' | 'setStorage' | 'removeStorage'>;
+interface Serializer<T> {
+    read: (raw: string) => T;
+    write: (value: T) => string;
+}
+type DataType = string | number | boolean | object | null;
+declare function guessSerializerType<T extends DataType>(raw: T): "string" | "object" | "number" | "any" | "set" | "map" | "date" | "boolean";
+interface UseStorageOptions<T> extends ConfigurableEventFilter, ConfigurableFlush {
+    /**
+     * 是否监听深层变化
+     *
+     * @default true
+     */
+    deep?: boolean;
+    /**
+     * 是否监听 setStorage、removeStorage 和 clearStorage 引起的本地缓存变化
+     *
+     * @default true
+     */
+    listenToStorageChanges?: boolean;
+    /**
+     * 当本地缓存不存在时，是否把默认值写入缓存
+     *
+     * @deprecated 变量ref和storage是响应式的，当storage没值，返回带默认值的ref必然会写入storage
+     * @default true
+     */
+    writeDefaults?: boolean;
+    /**
+     * 是否合并默认值和本地缓存值
+     *
+     * 当设置为 true 时，浅合并对象
+     *
+     * 你也可以传一个方法来自定义合并
+     *
+     * @default false
+     */
+    mergeDefaults?: boolean | ((storageValue: T, defaults: T) => T);
+    /** 自定义数据序列化 */
+    serializer?: Serializer<T>;
+    /**
+     * 错误回调
+     *
+     * 默认用 `console.error` 打印错误
+     */
+    onError?: (error: unknown) => void;
+    /**
+     * 是否使用 shallowRef
+     *
+     * @default false
+     */
+    shallow?: boolean;
+    /**
+     * Wait for the component to be mounted before reading the storage.
+     *
+     * @default false
+     */
+    initOnMounted?: boolean;
+    /** 异步 storage */
+    storage?: UniStorageLike;
+}
+declare function useStorage<T = unknown>(key: string, initialValue?: MaybeComputedRef<null>, options?: UseStorageOptions<T>): RemovableRef<T>;
+declare function useStorage<T>(key: string, initialValue: MaybeComputedRef<T>, options?: UseStorageOptions<T>): RemovableRef<T>;
+
+type UniStorageSyncLike = Pick<Uni, 'getStorageSync' | 'setStorageSync' | 'removeStorageSync'>;
+interface UseStorageSyncOptions<T> extends Omit<UseStorageOptions<T>, 'flush' | 'storage'>, ConfigurableFlushSync {
+    /** 同步 storage */
+    storage?: UniStorageSyncLike;
+}
+declare function useStorageSync(key: string, initialValue: MaybeComputedRef<string>, options?: UseStorageSyncOptions<string>): RemovableRef<string>;
+declare function useStorageSync(key: string, initialValue: MaybeComputedRef<boolean>, options?: UseStorageSyncOptions<boolean>): RemovableRef<boolean>;
+declare function useStorageSync(key: string, initialValue: MaybeComputedRef<number>, options?: UseStorageSyncOptions<number>): RemovableRef<number>;
+declare function useStorageSync<T>(key: string, initialValue: MaybeComputedRef<T>, options?: UseStorageSyncOptions<T>): RemovableRef<T>;
+declare function useStorageSync<T = unknown>(key: string, initialValue: MaybeComputedRef<null>, options?: UseStorageSyncOptions<T>): RemovableRef<T>;
+
+interface UniShowToastOptions extends UniApp.ShowToastOptions {
+}
+type ShowToastOptions = MaybeComputedRef<UniShowToastOptions>;
+type UseToastOptions = ShowToastOptions;
+/**
+ * 返回一个方法，调用后显示消息提示框
+ *
+ * https://uniapp.dcloud.net.cn/api/ui/prompt.html#showtoast
+ */
+declare function useToast(options?: UseToastOptions): (newOptions?: ShowToastOptions) => () => void;
+
+/** 对标 @vueuse/core v10.7.1 useAxios */
+interface UseUploadFileReturn<T> {
+    task: ShallowRef<UniApp.UploadTask | undefined>;
+    /** uni.uploadFile 响应 */
+    response: ShallowRef<UniApp.UploadFileSuccessCallbackResult | undefined>;
+    /** uni.uploadFile 响应内的数据 */
+    data: Ref<T | undefined>;
+    /** 上传是否完成 */
+    isFinished: Ref<boolean>;
+    /** 上传是否进行中 */
+    isLoading: Ref<boolean>;
+    /** 上传是否中止 */
+    isAborted: Ref<boolean>;
+    /** 上传间发生的错误 */
+    error: ShallowRef<UniApp.GeneralCallbackResult | undefined>;
+    /** 中止当前上传 */
+    abort: (message?: string | undefined) => void;
+    /** abort 别名 */
+    cancel: (message?: string | undefined) => void;
+    /** isAborted 别名 */
+    isCanceled: Ref<boolean>;
+}
+interface StrictUseUploadFileReturn<T> extends UseUploadFileReturn<T> {
+    /** 手动开始下载 */
+    execute: (url?: string | UniApp.UploadFileOption, config?: UniApp.UploadFileOption) => PromiseLike<StrictUseUploadFileReturn<T>>;
+}
+interface EasyUseUploadFileReturn<T> extends UseUploadFileReturn<T> {
+    /** 手动开始下载 */
+    execute: (url: string, config?: UniApp.UploadFileOption) => PromiseLike<EasyUseUploadFileReturn<T>>;
+}
+type OverallUseUploadFileReturn<T> = StrictUseUploadFileReturn<T> | EasyUseUploadFileReturn<T>;
+interface UseUploadFileOptions<T = any> {
+    /** 是否自动开始上传 */
+    immediate?: boolean;
+    /**
+     * 是否使用 shallowRef
+     *
+     * @default true
+     */
+    shallow?: boolean;
+    /** 上传错误时的回调 */
+    onError?: (e: UniApp.GeneralCallbackResult) => void;
+    /** 上传成功时的回调 */
+    onSuccess?: (data: T) => void;
+    /** 要使用的初始化数据 */
+    initialData?: T;
+    /** 是否在执行承诺之前将状态设置为初始状态 */
+    resetOnExecute?: boolean;
+    /** 上传结束时的回调 */
+    onFinish?: (result?: UniApp.GeneralCallbackResult) => void;
+}
+declare function useUploadFile<T = any>(url: string, config?: UniApp.UploadFileOption, options?: UseUploadFileOptions): StrictUseUploadFileReturn<T> & PromiseLike<StrictUseUploadFileReturn<T>>;
+declare function useUploadFile<T = any>(config?: UniApp.UploadFileOption): EasyUseUploadFileReturn<T> & PromiseLike<EasyUseUploadFileReturn<T>>;
+
+/** 获取当前页面是否可见 */
+declare function useVisible(): vue.Ref<boolean, boolean>;
+
+type UniUse_DataType = DataType;
+type UniUse_EasyUseDownloadFileReturn<T> = EasyUseDownloadFileReturn<T>;
+type UniUse_EasyUseRequestReturn<T> = EasyUseRequestReturn<T>;
+type UniUse_EasyUseUploadFileReturn<T> = EasyUseUploadFileReturn<T>;
+type UniUse_GetProviderOptions = GetProviderOptions;
+type UniUse_InterceptorOptions<F extends UniMethod = UniMethod> = InterceptorOptions<F>;
+type UniUse_NetworkType = NetworkType;
+type UniUse_OverallUseDownloadFileReturn<T> = OverallUseDownloadFileReturn<T>;
+type UniUse_OverallUseRequestReturn<T> = OverallUseRequestReturn<T>;
+type UniUse_OverallUseUploadFileReturn<T> = OverallUseUploadFileReturn<T>;
+type UniUse_QueryResult<M extends SelectAll> = QueryResult<M>;
+type UniUse_ScanCodeOptions = ScanCodeOptions;
+type UniUse_SelectAll = SelectAll;
+type UniUse_Serializer<T> = Serializer<T>;
+type UniUse_ShowActionSheetOptions = ShowActionSheetOptions;
+type UniUse_ShowLoadingOptions = ShowLoadingOptions;
+type UniUse_ShowModalOptions = ShowModalOptions;
+type UniUse_ShowToastOptions = ShowToastOptions;
+type UniUse_SocketStatus = SocketStatus;
+type UniUse_SocketTask = SocketTask;
+type UniUse_StrictUseDownloadFileReturn<T> = StrictUseDownloadFileReturn<T>;
+type UniUse_StrictUseRequestReturn<T> = StrictUseRequestReturn<T>;
+type UniUse_StrictUseUploadFileReturn<T> = StrictUseUploadFileReturn<T>;
+type UniUse_TryOnBackPressOptions = TryOnBackPressOptions;
+type UniUse_TryOnHideOptions = TryOnHideOptions;
+type UniUse_TryOnInitOptions = TryOnInitOptions;
+type UniUse_TryOnLoadOptions = TryOnLoadOptions;
+type UniUse_TryOnReadyOptions = TryOnReadyOptions;
+type UniUse_TryOnShowOptions = TryOnShowOptions;
+type UniUse_TryOnUnloadOptions = TryOnUnloadOptions;
+type UniUse_UniGetProviderOptions = UniGetProviderOptions;
+type UniUse_UniScanCodeOptions = UniScanCodeOptions;
+type UniUse_UniShowActionSheetOptions = UniShowActionSheetOptions;
+type UniUse_UniShowLoadingOptions = UniShowLoadingOptions;
+type UniUse_UniShowModalOptions = UniShowModalOptions;
+type UniUse_UniShowToastOptions = UniShowToastOptions;
+type UniUse_UniStorageLike = UniStorageLike;
+type UniUse_UniStorageSyncLike = UniStorageSyncLike;
+type UniUse_UseActionSheetOptions = UseActionSheetOptions;
+type UniUse_UseClipboardDataOptions = UseClipboardDataOptions;
+type UniUse_UseDownloadFileOptions<T = any> = UseDownloadFileOptions<T>;
+type UniUse_UseDownloadFileReturn<T> = UseDownloadFileReturn<T>;
+type UniUse_UseGlobalDataOptions<T extends object | undefined> = UseGlobalDataOptions<T>;
+type UniUse_UseLoadingOptions = UseLoadingOptions;
+type UniUse_UseModalOptions = UseModalOptions;
+type UniUse_UsePageScrollOptions = UsePageScrollOptions;
+type UniUse_UseProviderOptions = UseProviderOptions;
+type UniUse_UseQueryOptions = UseQueryOptions;
+type UniUse_UseRequestOptions<T = any> = UseRequestOptions<T>;
+type UniUse_UseRequestReturn<T> = UseRequestReturn<T>;
+type UniUse_UseRouterOptions = UseRouterOptions;
+type UniUse_UseScanCodeOptions = UseScanCodeOptions;
+type UniUse_UseScreenBrightnessOptions = UseScreenBrightnessOptions;
+type UniUse_UseSocketOptions = UseSocketOptions;
+type UniUse_UseSocketReturn<T> = UseSocketReturn<T>;
+type UniUse_UseStorageOptions<T> = UseStorageOptions<T>;
+type UniUse_UseStorageSyncOptions<T> = UseStorageSyncOptions<T>;
+type UniUse_UseToastOptions = UseToastOptions;
+type UniUse_UseUploadFileOptions<T = any> = UseUploadFileOptions<T>;
+type UniUse_UseUploadFileReturn<T> = UseUploadFileReturn<T>;
+declare const UniUse_guessSerializerType: typeof guessSerializerType;
+declare const UniUse_tryOnBackPress: typeof tryOnBackPress;
+declare const UniUse_tryOnHide: typeof tryOnHide;
+declare const UniUse_tryOnInit: typeof tryOnInit;
+declare const UniUse_tryOnLoad: typeof tryOnLoad;
+declare const UniUse_tryOnReady: typeof tryOnReady;
+declare const UniUse_tryOnScopeDispose: typeof tryOnScopeDispose;
+declare const UniUse_tryOnShow: typeof tryOnShow;
+declare const UniUse_tryOnUnload: typeof tryOnUnload;
+declare const UniUse_tryParseJson: typeof tryParseJson;
+declare const UniUse_useActionSheet: typeof useActionSheet;
+declare const UniUse_useClipboardData: typeof useClipboardData;
+declare const UniUse_useDownloadFile: typeof useDownloadFile;
+declare const UniUse_useGlobalData: typeof useGlobalData;
+declare const UniUse_useInterceptor: typeof useInterceptor;
+declare const UniUse_useLoading: typeof useLoading;
+declare const UniUse_useModal: typeof useModal;
+declare const UniUse_useNetwork: typeof useNetwork;
+declare const UniUse_useOnline: typeof useOnline;
+declare const UniUse_usePage: typeof usePage;
+declare const UniUse_usePageScroll: typeof usePageScroll;
+declare const UniUse_usePages: typeof usePages;
+declare const UniUse_usePreferredDark: typeof usePreferredDark;
+declare const UniUse_usePreferredLanguage: typeof usePreferredLanguage;
+declare const UniUse_usePrevPage: typeof usePrevPage;
+declare const UniUse_usePrevRoute: typeof usePrevRoute;
+declare const UniUse_useProvider: typeof useProvider;
+declare const UniUse_useQuery: typeof useQuery;
+declare const UniUse_useRequest: typeof useRequest;
+declare const UniUse_useRoute: typeof useRoute;
+declare const UniUse_useRouter: typeof useRouter;
+declare const UniUse_useScanCode: typeof useScanCode;
+declare const UniUse_useScreenBrightness: typeof useScreenBrightness;
+declare const UniUse_useSelectorQuery: typeof useSelectorQuery;
+declare const UniUse_useSocket: typeof useSocket;
+declare const UniUse_useStorage: typeof useStorage;
+declare const UniUse_useStorageSync: typeof useStorageSync;
+declare const UniUse_useToast: typeof useToast;
+declare const UniUse_useUploadFile: typeof useUploadFile;
+declare const UniUse_useVisible: typeof useVisible;
+declare namespace UniUse {
+  export { UniUse_guessSerializerType as guessSerializerType, UniUse_tryOnBackPress as tryOnBackPress, UniUse_tryOnHide as tryOnHide, UniUse_tryOnInit as tryOnInit, UniUse_tryOnLoad as tryOnLoad, UniUse_tryOnReady as tryOnReady, UniUse_tryOnScopeDispose as tryOnScopeDispose, UniUse_tryOnShow as tryOnShow, UniUse_tryOnUnload as tryOnUnload, UniUse_tryParseJson as tryParseJson, UniUse_useActionSheet as useActionSheet, UniUse_useClipboardData as useClipboardData, UniUse_useDownloadFile as useDownloadFile, UniUse_useGlobalData as useGlobalData, UniUse_useInterceptor as useInterceptor, UniUse_useLoading as useLoading, UniUse_useModal as useModal, UniUse_useNetwork as useNetwork, UniUse_useOnline as useOnline, UniUse_usePage as usePage, UniUse_usePageScroll as usePageScroll, UniUse_usePages as usePages, UniUse_usePreferredDark as usePreferredDark, UniUse_usePreferredLanguage as usePreferredLanguage, UniUse_usePrevPage as usePrevPage, UniUse_usePrevRoute as usePrevRoute, UniUse_useProvider as useProvider, UniUse_useQuery as useQuery, UniUse_useRequest as useRequest, UniUse_useRoute as useRoute, UniUse_useRouter as useRouter, UniUse_useScanCode as useScanCode, UniUse_useScreenBrightness as useScreenBrightness, UniUse_useSelectorQuery as useSelectorQuery, UniUse_useSocket as useSocket, UniUse_useStorage as useStorage, useStorage as useStorageAsync, UniUse_useStorageSync as useStorageSync, UniUse_useToast as useToast, UniUse_useUploadFile as useUploadFile, UniUse_useVisible as useVisible };
+  export type { UniUse_DataType as DataType, UniUse_EasyUseDownloadFileReturn as EasyUseDownloadFileReturn, UniUse_EasyUseRequestReturn as EasyUseRequestReturn, UniUse_EasyUseUploadFileReturn as EasyUseUploadFileReturn, UniUse_GetProviderOptions as GetProviderOptions, UniUse_InterceptorOptions as InterceptorOptions, UniUse_NetworkType as NetworkType, UniUse_OverallUseDownloadFileReturn as OverallUseDownloadFileReturn, UniUse_OverallUseRequestReturn as OverallUseRequestReturn, UniUse_OverallUseUploadFileReturn as OverallUseUploadFileReturn, UniUse_QueryResult as QueryResult, UniUse_ScanCodeOptions as ScanCodeOptions, UniUse_SelectAll as SelectAll, UniUse_Serializer as Serializer, UniUse_ShowActionSheetOptions as ShowActionSheetOptions, UniUse_ShowLoadingOptions as ShowLoadingOptions, UniUse_ShowModalOptions as ShowModalOptions, UniUse_ShowToastOptions as ShowToastOptions, UniUse_SocketStatus as SocketStatus, UniUse_SocketTask as SocketTask, UniUse_StrictUseDownloadFileReturn as StrictUseDownloadFileReturn, UniUse_StrictUseRequestReturn as StrictUseRequestReturn, UniUse_StrictUseUploadFileReturn as StrictUseUploadFileReturn, UniUse_TryOnBackPressOptions as TryOnBackPressOptions, UniUse_TryOnHideOptions as TryOnHideOptions, UniUse_TryOnInitOptions as TryOnInitOptions, UniUse_TryOnLoadOptions as TryOnLoadOptions, UniUse_TryOnReadyOptions as TryOnReadyOptions, UniUse_TryOnShowOptions as TryOnShowOptions, UniUse_TryOnUnloadOptions as TryOnUnloadOptions, UniUse_UniGetProviderOptions as UniGetProviderOptions, UniUse_UniScanCodeOptions as UniScanCodeOptions, UniUse_UniShowActionSheetOptions as UniShowActionSheetOptions, UniUse_UniShowLoadingOptions as UniShowLoadingOptions, UniUse_UniShowModalOptions as UniShowModalOptions, UniUse_UniShowToastOptions as UniShowToastOptions, UniUse_UniStorageLike as UniStorageLike, UniUse_UniStorageSyncLike as UniStorageSyncLike, UniUse_UseActionSheetOptions as UseActionSheetOptions, UniUse_UseClipboardDataOptions as UseClipboardDataOptions, UniUse_UseDownloadFileOptions as UseDownloadFileOptions, UniUse_UseDownloadFileReturn as UseDownloadFileReturn, UniUse_UseGlobalDataOptions as UseGlobalDataOptions, UniUse_UseLoadingOptions as UseLoadingOptions, UniUse_UseModalOptions as UseModalOptions, UniUse_UsePageScrollOptions as UsePageScrollOptions, UniUse_UseProviderOptions as UseProviderOptions, UniUse_UseQueryOptions as UseQueryOptions, UniUse_UseRequestOptions as UseRequestOptions, UniUse_UseRequestReturn as UseRequestReturn, UniUse_UseRouterOptions as UseRouterOptions, UniUse_UseScanCodeOptions as UseScanCodeOptions, UniUse_UseScreenBrightnessOptions as UseScreenBrightnessOptions, UniUse_UseSocketOptions as UseSocketOptions, UniUse_UseSocketReturn as UseSocketReturn, UniUse_UseStorageOptions as UseStorageOptions, UniUse_UseStorageSyncOptions as UseStorageSyncOptions, UniUse_UseToastOptions as UseToastOptions, UniUse_UseUploadFileOptions as UseUploadFileOptions, UniUse_UseUploadFileReturn as UseUploadFileReturn };
+}
+
+/** @deprecated 建议使用 `uniuseAutoImports` 函数 */
+declare const UniUseAutoImports: Record<string, Array<string | [string, string]>>;
+type UniUseFunction = keyof typeof UniUse;
+interface UniUseAutoImportsOptions {
+    only?: UniUseFunction[];
+    except?: UniUseFunction[];
+}
+/** 自定义配置 unplugin-auto-import */
+declare function uniuseAutoImports(options?: UniUseAutoImportsOptions): {
+    [x: string]: string[];
+};
+
+export { UniUseAutoImports, guessSerializerType, tryOnBackPress, tryOnHide, tryOnInit, tryOnLoad, tryOnReady, tryOnScopeDispose, tryOnShow, tryOnUnload, tryParseJson, uniuseAutoImports, useActionSheet, useClipboardData, useDownloadFile, useGlobalData, useInterceptor, useLoading, useModal, useNetwork, useOnline, usePage, usePageScroll, usePages, usePreferredDark, usePreferredLanguage, usePrevPage, usePrevRoute, useProvider, useQuery, useRequest, useRoute, useRouter, useScanCode, useScreenBrightness, useSelectorQuery, useSocket, useStorage, useStorage as useStorageAsync, useStorageSync, useToast, useUploadFile, useVisible };
+export type { DataType, EasyUseDownloadFileReturn, EasyUseRequestReturn, EasyUseUploadFileReturn, GetProviderOptions, InterceptorOptions, NetworkType, OverallUseDownloadFileReturn, OverallUseRequestReturn, OverallUseUploadFileReturn, QueryResult, ScanCodeOptions, SelectAll, Serializer, ShowActionSheetOptions, ShowLoadingOptions, ShowModalOptions, ShowToastOptions, SocketStatus, SocketTask, StrictUseDownloadFileReturn, StrictUseRequestReturn, StrictUseUploadFileReturn, TryOnBackPressOptions, TryOnHideOptions, TryOnInitOptions, TryOnLoadOptions, TryOnReadyOptions, TryOnShowOptions, TryOnUnloadOptions, UniGetProviderOptions, UniScanCodeOptions, UniShowActionSheetOptions, UniShowLoadingOptions, UniShowModalOptions, UniShowToastOptions, UniStorageLike, UniStorageSyncLike, UniUseAutoImportsOptions, UniUseFunction, UseActionSheetOptions, UseClipboardDataOptions, UseDownloadFileOptions, UseDownloadFileReturn, UseGlobalDataOptions, UseLoadingOptions, UseModalOptions, UsePageScrollOptions, UseProviderOptions, UseQueryOptions, UseRequestOptions, UseRequestReturn, UseRouterOptions, UseScanCodeOptions, UseScreenBrightnessOptions, UseSocketOptions, UseSocketReturn, UseStorageOptions, UseStorageSyncOptions, UseToastOptions, UseUploadFileOptions, UseUploadFileReturn };

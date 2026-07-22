@@ -1,0 +1,14 @@
+import { a as ComponentResolverObject, c as Matcher, d as SideEffectsInfo, f as SupportedTransformer, i as ComponentResolverFunction, l as Options, m as TypeImport, n as ComponentResolveResult, o as ImportInfo, p as Transformer, r as ComponentResolver, s as ImportInfoLegacy, t as ComponentInfo, u as ResolvedOptions } from "./types-bh-L7Oiv.mjs";
+import "chokidar";
+import { Plugin } from "vite";
+import { FilterPattern } from "@rollup/pluginutils";
+
+//#region src/utils.d.ts
+declare function pascalCase(str: string): string;
+declare function camelCase(str: string): string;
+declare function kebabCase(key: string): string;
+//#endregion
+//#region src/index.d.ts
+declare function VitePluginComponents(options?: Options): Plugin;
+//#endregion
+export { ComponentInfo, ComponentResolveResult, ComponentResolver, ComponentResolverFunction, ComponentResolverObject, ImportInfo, ImportInfoLegacy, Matcher, Options, ResolvedOptions, SideEffectsInfo, SupportedTransformer, Transformer, TypeImport, camelCase, VitePluginComponents as default, kebabCase, pascalCase };

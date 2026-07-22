@@ -1,0 +1,6414 @@
+//#region src/_internal/iterator.ts
+/**
+* The operation type to filter elements in the iterator
+*
+* 过滤迭代器中元素的操作类型
+*
+* @internal
+*/
+const OPERATION_FILTER = "filter";
+/**
+* The operation type to limit the number of elements in the iterator
+*
+* 限制迭代器中元素数量的操作类型
+*
+* @internal
+*/
+const OPERATION_TAKE = "take";
+/**
+* The operation type to drop elements from the iterator
+*
+* 从迭代器中删除元素的操作类型
+*
+* @internal
+*/
+const OPERATION_DROP = "drop";
+//#endregion
+//#region src/predicate/is-array.ts
+/**
+* Checks if the input is an array.
+*
+* 检查输入是否为数组。
+*
+* @category Predicate
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is an array, false otherwise. 如果值为数组则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isArray([1, 2, 3]) // => true
+* isArray('foo') // => false
+* ```
+*/
+function isArray(v) {
+	return Array.isArray(v);
+}
+//#endregion
+//#region src/_internal/tags.ts
+const T_NULL = "null";
+const T_UNDEFINED = "undefined";
+const T_BOOLEAN = "boolean";
+const T_STRING = "string";
+const T_NUMBER = "number";
+const T_SYMBOL = "symbol";
+const T_FUNCTION = "function";
+const T_OBJECT = "object";
+const T_REGEXP = "regexp";
+const T_PROMISE = "promise";
+const T_BLOB = "blob";
+const T_DATE = "date";
+const DANGEROUS_KEYS = new Set([
+	"__proto__",
+	"constructor",
+	"prototype"
+]);
+//#endregion
+//#region src/_internal/get-type-name.ts
+/**
+* Get the type name of a value.
+*
+* 获取变量的类型字符串表示
+*
+* @param s - The value to get the type name for. 要获取类型的值
+* @returns The type name of the value. 值的类型字符串表示
+*
+* @remarks
+* This function uses `Object.prototype.toString.call(value)`, which returns the internal `[[Class]]` tag in the format `[object Type]`. It does NOT call the value's own `toString()` method.
+*
+* 此函数使用 `Object.prototype.toString.call(value)`，返回内部 `[[Class]]` 标签，格式为 `[object Type]` 。
+*
+* @example
+* ```ts
+* getTypeName(42) // => '[object Number]'
+* getTypeName('hello') // => '[object String]'
+* getTypeName(undefined) // => '[object Undefined]'
+* getTypeName(null) // => '[object Null]'
+* getTypeName({}) // => '[object Object]'
+* ```
+* @internal
+*/
+function getTypeName(s) {
+	return Object.prototype.toString.call(s);
+}
+//#endregion
+//#region src/predicate/type-of.ts
+/**
+* Get the type of a value.
+*
+* 获取值的类型。
+*
+* @category Predicate
+*
+* @param s - The value to get the type of. 要获取类型的值
+*
+* @returns The type of the value as a string. 值的类型字符串
+*
+* @example
+* ```ts
+* typeOf(null) // => 'null'
+* typeOf([]) // => 'array'
+* typeOf(new Map()) // => 'map'
+* typeOf(new Date()) // => 'date'
+* typeOf(42) // => 'number'
+* typeOf('hello') // => 'string'
+* typeOf(() => {}) // => 'function'
+* ```
+*/
+function typeOf(s) {
+	const type = typeof s;
+	return s === null ? T_NULL : type === "object" || type === "function" ? getTypeName(s).slice(8, -1).toLowerCase() : type;
+}
+//#endregion
+//#region src/predicate/is-typeof.ts
+/**
+* Checks if a value is of a given type.
+*
+* 检查值是否为给定类型。
+*
+* @category Predicate
+*
+* @param s - The value to check. 要检查的值
+* @param type - The type to check against. 要检查的类型
+*
+* @returns True if the value is of the given type, false otherwise. 如果值为给定类型则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isTypeof(null, 'null') // => true
+* isTypeof(undefined, 'undefined') // => true
+* isTypeof({}, 'object') // => true
+* isTypeof([], 'array') // => true
+* isTypeof(new Map(), 'map') // => true
+* isTypeof(() => {}, 'function') // => true
+* isTypeof(42, 'string') // => false
+* ```
+*/
+function isTypeof(s, type) {
+	return typeOf(s) === type;
+}
+//#endregion
+//#region src/predicate/is-blob.ts
+/**
+* Checks if the input is a Blob.
+*
+* 检查输入是否为 Blob。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a Blob, false otherwise. 如果值为 Blob 则返回 true，否则返回 false
+*
+* @remarks
+* This function first checks whether the global `Blob` constructor is defined before using `instanceof Blob`.
+* This prevents `ReferenceError` in non-browser environments (e.g., Node.js) where `Blob` may not exist.
+*
+* 该函数在使用 `instanceof Blob` 之前，首先检查全局 `Blob` 构造函数是否已定义。
+* 这可以防止在 `Blob` 不存在的非浏览器环境（如 Node.js）中抛出 `ReferenceError`。
+*
+* @example
+* ```ts
+* isBlob(new Blob([])) // => true
+* isBlob({}) // => false
+* ```
+*/
+function isBlob(v) {
+	/* istanbul ignore if -- @preserve */
+	if (typeof Blob === "undefined") return false;
+	return isTypeof(v, T_BLOB);
+}
+//#endregion
+//#region src/predicate/is-boolean.ts
+/**
+* Checks if the input is a boolean.
+*
+* 检查输入是否为布尔值。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a boolean, false otherwise. 如果值为布尔值则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isBoolean(true) // => true
+* isBoolean(1) // => false
+* ```
+*/
+function isBoolean(v) {
+	return isTypeof(v, T_BOOLEAN);
+}
+//#endregion
+//#region src/predicate/is-browser.ts
+/**
+* Checks if the current runtime is a browser environment.
+*
+* 检查当前运行时是否为浏览器环境。
+*
+* @category Predicate
+*
+* @returns True if in a browser environment, false otherwise. 如果在浏览器环境中则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* // Returns a boolean, runtime-dependent
+* isBrowser() // => true | false
+* ```
+*/
+function isBrowser() {
+	/* istanbul ignore next -- @preserve */
+	return typeof window !== "undefined" && window.document != null;
+}
+//#endregion
+//#region src/predicate/is-buffer.ts
+/**
+* Checks if the input is a Buffer.
+*
+* 检查输入是否为 Buffer。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a Buffer, false otherwise. 如果值为 Buffer 则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isBuffer(Buffer.from('hello')) // => true
+* ```
+*/
+function isBuffer(v) {
+	/* istanbul ignore next -- @preserve */
+	return typeof Buffer !== "undefined" && Buffer.isBuffer(v);
+}
+//#endregion
+//#region src/predicate/is-date.ts
+/**
+* Checks if the input is a date.
+*
+* 检查输入是否为日期。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a date, false otherwise. 如果值为日期则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isDate(new Date()) // => true
+* isDate('2024-01-01') // => false
+* ```
+*/
+function isDate(v) {
+	return isTypeof(v, T_DATE);
+}
+//#endregion
+//#region src/predicate/is-def.ts
+/**
+* Checks if the input is defined.
+*
+* 检查输入是否已定义。
+*
+* @category Predicate
+*
+* @typeParam T - The type of the value to check / 要检查的值的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is defined, false otherwise. 如果值已定义则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isDef(0) // => true
+* isDef(null) // => true
+* isDef(undefined) // => false
+* ```
+*/
+function isDef(v) {
+	return !isTypeof(v, T_UNDEFINED);
+}
+//#endregion
+//#region src/predicate/is-null.ts
+/**
+* Checks if the input is null.
+*
+* 检查输入是否为 null。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is null, false otherwise. 如果值为 null 则返回 true，否则返回 false
+*
+* @see {@link isNil} — for checking both null and undefined
+* @see {@link isNil} — 检查 null 和 undefined
+*
+* @example
+* ```ts
+* isNull(null) // => true
+* isNull(undefined) // => false
+* ```
+*/
+function isNull(v) {
+	return v === null;
+}
+//#endregion
+//#region src/predicate/is-plain-object.ts
+/**
+* Checks if the input is an object.
+*
+* 检查输入是否为对象。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is an object, false otherwise. 如果值为对象则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isPlainObject({}) // => true
+* isPlainObject(new Map()) // => false
+* isPlainObject(Object.create(null)) // => true
+* ```
+*/
+function isPlainObject(v) {
+	if (!isTypeof(v, "object")) return false;
+	const proto = Object.getPrototypeOf(v);
+	return isNull(proto) || proto === Object.prototype;
+}
+//#endregion
+//#region src/predicate/is-empty-object.ts
+/**
+* Checks if the input is an empty object.
+*
+* 检查输入是否为空对象。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is an empty object, false otherwise. 如果值为空对象则返回 true，否则返回 false
+*
+* @remarks
+* This function uses `for...in` to enumerate enumerable string-keyed properties.
+* Symbol-keyed properties are skipped by `for...in`, so an object containing only Symbol-keyed properties
+* would be incorrectly reported as empty.
+*
+* 该函数使用 `for...in` 枚举可枚举的字符串键属性。
+* `for...in` 会跳过 Symbol 键属性，因此仅包含 Symbol 键属性的对象会被错误地报告为空。
+*
+* @example
+* ```ts
+* isEmptyObject({}) // => true
+* isEmptyObject({ a: 1 }) // => false
+* ```
+*/
+function isEmptyObject(v) {
+	if (!isPlainObject(v)) return false;
+	for (const _ in v) return false;
+	return true;
+}
+//#endregion
+//#region src/predicate/is-map.ts
+/**
+* Checks if the input is a Map.
+*
+* 检查输入是否为 Map。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a Map, false otherwise. 如果值为 Map 则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isMap(new Map()) // => true
+* isMap({}) // => false
+* ```
+*/
+function isMap(v) {
+	return isTypeof(v, "map");
+}
+//#endregion
+//#region src/predicate/is-nil.ts
+/**
+* Checks if the input is null or undefined.
+*
+* 检查输入是否为 null 或 undefined。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is null or undefined, false otherwise. 如果值为 null 或 undefined 则返回 true，否则返回 false
+*
+* @see {@link isNull} and {@link isUndefined} — for individual checks
+* @see {@link isNull} 和 {@link isUndefined} — 单独检查
+*
+* @example
+* ```ts
+* isNil(null) // => true
+* isNil(undefined) // => true
+* isNil(0) // => false
+* ```
+*/
+function isNil(v) {
+	return v == null;
+}
+//#endregion
+//#region src/predicate/is-set.ts
+/**
+* Checks if the input is a Set.
+*
+* 检查输入是否为 Set。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a Set, false otherwise. 如果值为 Set 则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isSet(new Set()) // => true
+* isSet([]) // => false
+* ```
+*/
+function isSet(v) {
+	return isTypeof(v, "set");
+}
+//#endregion
+//#region src/predicate/is-string.ts
+/**
+* Checks if the input is a string.
+*
+* 检查输入是否为字符串。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a string, false otherwise. 如果值为字符串则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isString('hello') // => true
+* isString(1) // => false
+* ```
+*/
+function isString(v) {
+	return isTypeof(v, T_STRING);
+}
+//#endregion
+//#region src/predicate/is-typed-array.ts
+/**
+* Checks if the input is a typed array.
+*
+* 检查输入是否为类型化数组。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a typed array, false otherwise. 如果值为类型化数组则返回 true，否则返回 false
+*
+* @remarks
+* This function explicitly excludes `DataView` from typed arrays, even though `ArrayBuffer.isView()` returns `true` for `DataView`.
+* It checks that the internal type tag is not `'dataview'` to filter it out.
+*
+* 该函数明确将 `DataView` 排除在类型化数组之外，尽管 `ArrayBuffer.isView()` 对 `DataView` 返回 `true`。
+* 它通过检查内部类型标签不为 `'dataview'` 来将其过滤掉。
+*
+* @example
+* ```ts
+* isTypedArray(new Uint8Array()) // => true
+* isTypedArray(new DataView(new ArrayBuffer(8))) // => false
+* ```
+*/
+function isTypedArray(v) {
+	return ArrayBuffer.isView(v) && !isTypeof(v, "dataview");
+}
+//#endregion
+//#region src/predicate/is-empty.ts
+/**
+* Checks if a value is empty.
+*
+* 检查值是否为空。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is empty, false otherwise. 如果值为空则返回 true，否则返回 false
+*
+* @remarks
+* - For strings, arrays, buffers, and typed arrays: "empty" means a length of `0`.
+* - For Map and Set: "empty" means a size of `0`.
+* - Nil values (`null` / `undefined`) are considered empty.
+* - For plain objects: delegates to {@link isEmptyObject}, which uses `for...in` and therefore skips Symbol-keyed properties.
+*
+* - 对于字符串、数组、缓冲区和类型化数组："空"表示长度为 `0`。
+* - 对于 Map 和 Set："空"表示大小为 `0`。
+* - 空值（`null` / `undefined`）被视为空。
+* - 对于普通对象：委托给 {@link isEmptyObject}，该方法使用 `for...in`，因此会跳过 Symbol 键属性。
+*
+* @example
+* ```ts
+* isEmpty('') // => true
+* isEmpty([]) // => true
+* isEmpty(new Map()) // => true
+* isEmpty({ a: 1 }) // => false
+* ```
+*/
+function isEmpty(v) {
+	if (isNil(v)) return true;
+	if (isString(v) || isArray(v) || isBuffer(v) || isTypedArray(v)) return v.length === 0;
+	if (isMap(v) || isSet(v)) return v.size === 0;
+	return isEmptyObject(v);
+}
+//#endregion
+//#region src/predicate/is-error.ts
+/**
+* Check if a value is an Error object.
+*
+* 检查值是否为错误对象。
+*
+* @category Predicate
+*
+* @param value - The value to check. 要检查的值
+*
+* @returns True if the value is an Error object, false otherwise. 如果值为错误对象则返回 true，否则返回 false
+*
+* @remarks
+* This function uses cross-realm detection: it first attempts `instanceof Error`, which works within the same realm.
+* When that fails, it falls back to `typeOf('error')` to detect Error instances from cross-iframe or cross-VM contexts.
+*
+* 该函数使用跨环境检测：首先尝试 `instanceof Error`，在同一环境下此方法有效。
+* 当检测失败时，回退到 `typeOf('error')` 以检测来自跨 iframe 或跨 VM 上下文的 Error 实例。
+*
+* @example
+* ```ts
+* isError(new Error('test')) // => true
+* isError({ message: 'test' }) // => false
+* ```
+*/
+function isError(value) {
+	if (value instanceof Error) return true;
+	if (typeof value !== "object") return false;
+	const type = typeOf(value);
+	return (type === "error" || type === "domexception" || type === "aggregateerror") && isString(value.message);
+}
+//#endregion
+//#region src/predicate/is-finite.ts
+/**
+* A strongly-typed version of `Number.isFinite()`.
+*
+* `Number.isFinite()` 的强类型版本。
+*
+* @category Predicate
+*
+* @typeParam T extends number - The type of the number value / 数值类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is finite, false otherwise. 如果值为有限数则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isFinite(1) // => true
+* isFinite(0) // => true
+* isFinite(-1) // => true
+* isFinite(Infinity) // => false
+* isFinite(-Infinity) // => false
+* isFinite(NaN) // => false
+* ```
+*/
+function isFinite(v) {
+	return Number.isFinite(v);
+}
+//#endregion
+//#region src/predicate/is-function.ts
+/**
+* Checks if the input is a function.
+*
+* 检查输入是否为函数。
+*
+* @category Predicate
+*
+* @typeParam T extends (...args: any[]) => any - The type of elements in the array / 数组元素的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a function, false otherwise. 如果值为函数则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isFunction(() => {}) // => true
+* isFunction({}) // => false
+* ```
+*/
+function isFunction(v) {
+	return typeof v === T_FUNCTION;
+}
+//#endregion
+//#region src/predicate/is-integer.ts
+/**
+* Checks if the input is an integer.
+*
+* 检查输入是否为整数。
+*
+* @category Predicate
+*
+* @typeParam T - The type of the value to check / 要检查的值的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is an integer, false otherwise. 如果值为整数则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isInteger(1) // => true
+* isInteger(0) // => true
+* isInteger(-1) // => true
+* isInteger(1.1) // => false
+* isInteger(NaN) // => false
+* ```
+*/
+function isInteger(v) {
+	return Number.isInteger(v);
+}
+//#endregion
+//#region src/predicate/is-iterable.ts
+/**
+* Checks if the input is an iterable object.
+*
+* 检查输入是否为可迭代对象。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is iterable, false otherwise. 如果值为可迭代对象则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isIterable([]) // => true
+* isIterable(new Map()) // => true
+* isIterable({}) // => false
+* ```
+*/
+function isIterable(v) {
+	return !isNil(v) && isTypeof(v?.[Symbol.iterator], "function");
+}
+//#endregion
+//#region src/_internal/reflect.ts
+/**
+* @internal
+*/
+const del = Reflect.deleteProperty;
+//#endregion
+//#region src/object/keys.ts
+/**
+* Strict typed `Object.keys`
+*
+* 严格类型的 `Object.keys`
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to get keys from. 要获取键的对象
+* @returns An array of the object's own enumerable property keys. 对象自身可枚举属性键的数组
+*
+* @see {@link objectEntries} — for typed Object.entries
+* @see {@link objectEntries} — 类型安全的 Object.entries
+*
+* @example
+* ```ts
+* objectKeys({ a: 1, b: 2 }) // => ['a', 'b']
+* ```
+*/
+function objectKeys(obj) {
+	return Object.keys(obj);
+}
+//#endregion
+//#region src/object/clear-undefined.ts
+/**
+* Remove keys with undefined values from an object
+*
+* 从对象中删除值为 undefined 的键
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to remove undefined keys from / 要删除值为 undefined 键的对象
+* @returns The object with undefined keys removed / 移除了值为 undefined 键的对象
+*
+* @remarks
+* This function mutates the original object in place by deleting keys whose value is `undefined`. It does not create a copy.
+*
+* 此函数会直接修改原对象，删除值为 `undefined` 的键。不会创建副本。
+*
+* @example
+* ```ts
+* const obj = { a: 1, b: undefined }
+* clearUndefined(obj) // { a: 1 }
+* ```
+*/
+function clearUndefined(obj) {
+	for (const key of objectKeys(obj)) if (isUndefined(obj[key])) del(obj, key);
+	return obj;
+}
+//#endregion
+//#region src/_internal/deepCloneImpl.ts
+function copyRegExpMatchProps(target, source, stack) {
+	if (hasOwn(source, "index")) target.index = source.index;
+	if (hasOwn(source, "input")) target.input = source.input;
+	if (hasOwn(source, "groups")) target.groups = deepCloneImpl(source.groups, stack);
+	if (hasOwn(source, "indices")) target.indices = deepCloneImpl(source.indices, stack);
+}
+/**
+* @internal
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*/
+function deepCloneImpl(valueToClone, stack = /* @__PURE__ */ new Map()) {
+	if (isPrimitive(valueToClone)) return valueToClone;
+	/* istanbul ignore if -- @preserve */
+	if (stack.has(valueToClone)) return stack.get(valueToClone);
+	if (Array.isArray(valueToClone)) {
+		const len = valueToClone.length;
+		let isPrimitiveArray = true;
+		for (let i = 0; i < len; i++) {
+			const v = valueToClone[i];
+			if (v != null && typeof v === "object") {
+				isPrimitiveArray = false;
+				break;
+			}
+		}
+		if (isPrimitiveArray) {
+			const result = valueToClone.slice();
+			stack.set(valueToClone, result);
+			copyRegExpMatchProps(result, valueToClone, stack);
+			return result;
+		}
+		const result = Array.from({ length: len });
+		stack.set(valueToClone, result);
+		for (let i = 0; i < len; i++) result[i] = deepCloneImpl(valueToClone[i], stack);
+		copyRegExpMatchProps(result, valueToClone, stack);
+		return result;
+	}
+	if (valueToClone instanceof Date) {
+		const result = new Date(valueToClone.getTime());
+		stack.set(valueToClone, result);
+		return result;
+	}
+	if (valueToClone instanceof RegExp) {
+		const result = new RegExp(valueToClone.source, valueToClone.flags);
+		result.lastIndex = valueToClone.lastIndex;
+		stack.set(valueToClone, result);
+		return result;
+	}
+	if (valueToClone instanceof Map) {
+		const result = /* @__PURE__ */ new Map();
+		stack.set(valueToClone, result);
+		for (const [key, value] of valueToClone) result.set(deepCloneImpl(key, stack), deepCloneImpl(value, stack));
+		return result;
+	}
+	if (valueToClone instanceof Set) {
+		const result = /* @__PURE__ */ new Set();
+		stack.set(valueToClone, result);
+		for (const value of valueToClone) result.add(deepCloneImpl(value, stack));
+		return result;
+	}
+	if (typeof Buffer !== "undefined" && Buffer.isBuffer(valueToClone)) {
+		const result = Buffer.from(valueToClone);
+		stack.set(valueToClone, result);
+		return result;
+	}
+	if (isTypedArray(valueToClone)) {
+		const Constructor = Object.getPrototypeOf(valueToClone).constructor;
+		const result = new Constructor(valueToClone);
+		stack.set(valueToClone, result);
+		return result;
+	}
+	if (valueToClone instanceof ArrayBuffer || typeof SharedArrayBuffer !== "undefined" && valueToClone instanceof SharedArrayBuffer) {
+		const result = valueToClone.slice(0);
+		stack.set(valueToClone, result);
+		return result;
+	}
+	if (valueToClone instanceof DataView) {
+		const result = new DataView(valueToClone.buffer.slice(0), valueToClone.byteOffset, valueToClone.byteLength);
+		stack.set(valueToClone, result);
+		copyProperties(result, valueToClone, stack);
+		return result;
+	}
+	if (typeof File !== "undefined" && valueToClone instanceof File) {
+		const result = new File([valueToClone], valueToClone.name, {
+			type: valueToClone.type,
+			lastModified: valueToClone.lastModified
+		});
+		stack.set(valueToClone, result);
+		copyProperties(result, valueToClone, stack);
+		return result;
+	}
+	if (valueToClone instanceof Blob) {
+		const result = new Blob([valueToClone], { type: valueToClone.type });
+		stack.set(valueToClone, result);
+		copyProperties(result, valueToClone, stack);
+		return result;
+	}
+	if (valueToClone instanceof Error) {
+		const result = new valueToClone.constructor(valueToClone.message, { cause: deepCloneImpl(valueToClone.cause, stack) });
+		stack.set(valueToClone, result);
+		if (hasOwn(valueToClone, "name")) result.name = valueToClone.name;
+		result.stack = valueToClone.stack;
+		copyProperties(result, valueToClone, stack);
+		return result;
+	}
+	/* istanbul ignore if -- @preserve */
+	if (typeof valueToClone === "object" && valueToClone !== null) {
+		const result = Object.create(Object.getPrototypeOf(valueToClone));
+		stack.set(valueToClone, result);
+		copyProperties(result, valueToClone, stack);
+		return result;
+	}
+	/* istanbul ignore next -- @preserve */
+	return valueToClone;
+}
+/**
+* @internal
+*/
+function copyProperties(target, source, stack) {
+	const stringKeys = Object.keys(source);
+	const symbolKeys = getSymbols(source);
+	for (let i = 0; i < stringKeys.length; i++) copyKey(source, target, stringKeys[i], stack);
+	for (let i = 0; i < symbolKeys.length; i++) copyKey(source, target, symbolKeys[i], stack);
+}
+/**
+* @internal
+*/
+function copyKey(source, target, key, stack) {
+	if (key === "__proto__") return;
+	const sourceDescriptor = Object.getOwnPropertyDescriptor(source, key);
+	if (sourceDescriptor != null && "value" in sourceDescriptor) {
+		const targetDescriptor = Object.getOwnPropertyDescriptor(target, key);
+		if (targetDescriptor == null || targetDescriptor.writable) target[key] = deepCloneImpl(sourceDescriptor.value, stack);
+	}
+}
+/**
+* @internal
+*/
+function getSymbols(object) {
+	return Object.getOwnPropertySymbols(object).filter((symbol) => Object.prototype.propertyIsEnumerable.call(object, symbol));
+}
+//#endregion
+//#region src/object/has-own.ts
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+/**
+* Check if an object has a non-inherited property
+*
+* 检查一个对象是否具有非继承属性
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to check. 要检查的对象
+* @param key - The key to check for. 要检查的键
+* @returns True if the object has the own property, false otherwise. 如果对象具有该自有属性则返回true，否则返回false
+*/
+function hasOwn(obj, key) {
+	return obj == null ? false : hasOwnProperty.call(obj, key);
+}
+//#endregion
+//#region src/object/clone.ts
+/**
+* clone data
+*
+* 克隆数据
+*
+* @module Clone
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*/
+/**
+* simple clone, use JSON.parse and JSON.stringify
+*
+* 简单的克隆,使用 JSON.parse 和 JSON.stringify
+*
+* @category Clone
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param source - The source data to clone. 要克隆的源数据
+* @returns The cloned data. 克隆后的数据
+*
+* @remarks
+* This function uses `JSON.parse(JSON.stringify())` which has the following limitations:
+* - `undefined` values, functions, and Symbol keys/values are silently dropped
+* - `Date` objects are converted to ISO strings (not Date instances)
+* - `RegExp`, `Map`, `Set`, `ArrayBuffer`, `TypedArray` are not properly cloned
+* - Circular references will throw a `TypeError`
+* - `NaN` and `Infinity` are converted to `null`
+*
+* For full deep cloning support, use {@link deepClone} instead.
+*
+* 此函数使用 `JSON.parse(JSON.stringify())`，存在以下限制：
+* - `undefined` 值、函数和 Symbol 键/值会被静默丢弃
+* - `Date` 对象会转换为 ISO 字符串（而非 Date 实例）
+* - `RegExp`、`Map`、`Set`、`ArrayBuffer`、`TypedArray` 无法正确克隆
+* - 循环引用会抛出 `TypeError`
+* - `NaN` 和 `Infinity` 会被转换为 `null`
+*
+* 如需完整的深克隆支持，请使用 {@link deepClone}。
+*
+* @see {@link deepClone} and {@link shallowClone} — for other clone strategies
+* @see {@link deepClone} 和 {@link shallowClone} — 其他克隆策略
+*/
+function simpleClone(source) {
+	if (isPrimitive(source)) return source;
+	return JSON.parse(JSON.stringify(source));
+}
+/**
+* shallow clone, only clone the first level
+*
+* 浅克隆,只克隆第一层
+*
+* @category Clone
+*
+* @param source - The source data to clone. 要克隆的源数据
+* @returns The cloned data. 克隆后的数据
+* @remarks
+* This function preserves the prototype chain and handles Date, Map, Set, RegExp, Error, and File objects specifically by constructing new instances from the originals. Arrays, TypedArrays, ArrayBuffer, and SharedArrayBuffer are cloned via `.slice()`. Plain objects are cloned via `Object.assign` with the prototype preserved.
+*
+* 此函数会保留原型链，并针对 Date、Map、Set、RegExp、Error 和 File 对象进行特殊处理，通过构造新实例来完成克隆。数组、TypedArrays、ArrayBuffer 和 SharedArrayBuffer 通过 `.slice()` 克隆。普通对象通过 `Object.assign` 克隆并保留原型。
+*/
+function shallowClone(source) {
+	if (isPrimitive(source)) return source;
+	if (isArray(source) || isTypedArray(source) || source instanceof ArrayBuffer || typeof SharedArrayBuffer !== "undefined" && source instanceof SharedArrayBuffer) return source.slice(0);
+	const prototype = Object.getPrototypeOf(source);
+	const Constructor = prototype?.constructor;
+	if (Constructor && Constructor !== Object) {
+		const type = typeOf(source);
+		if (type === "date" || type === "map" || type === "set") return new Constructor(source);
+		if (type === "regexp") {
+			const newRegExp = new Constructor(source);
+			newRegExp.lastIndex = source.lastIndex;
+			return newRegExp;
+		}
+		if (type === "dataview") return new Constructor(source.buffer.slice(0), source.byteOffset, source.byteLength);
+		if (isError(source)) {
+			const newError = new Constructor(source.message, { cause: source.cause });
+			if (hasOwn(source, "name")) newError.name = source.name;
+			newError.stack = source.stack;
+			return newError;
+		}
+		/* istanbul ignore if -- @preserve */
+		if (typeof File !== "undefined" && source instanceof File) return new Constructor([source], source.name, {
+			type: source.type,
+			lastModified: source.lastModified
+		});
+	}
+	/* istanbul ignore if -- @preserve */
+	if (isPlainObject(source)) return Object.assign(Object.create(prototype), source);
+	/* istanbul ignore next -- @preserve */
+	return source;
+}
+/**
+* Deep Clone.
+*
+* 深度克隆
+*
+* @category Clone
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param source - The source data to clone. 要克隆的源数据
+* @returns The deeply cloned data. 深度克隆后的数据
+*
+* @remarks
+* This function uses an internal `Map` to handle circular references safely, preventing infinite recursion during deep cloning.
+*
+* 此函数使用内部的 `Map` 来安全处理循环引用，防止深度克隆过程中的无限递归。
+*/
+function deepClone(source) {
+	return deepCloneImpl(source, /* @__PURE__ */ new Map());
+}
+//#endregion
+//#region src/object/deep-freeze.ts
+/**
+* Deeply freeze an object recursively — the object and all its nested objects become immutable.
+* Supports arrays, plain objects, Symbol keys, and non-enumerable properties.
+*
+* 递归深度冻结一个对象 —— 对象及其所有嵌套对象变得不可变。
+* 支持数组、普通对象、Symbol 键和不可枚举属性。
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to deeply freeze. 要深度冻结的对象。
+* @returns The same object, now deeply frozen. 同一对象，现已深度冻结。
+*
+* @remarks
+* **Mutation**: This function mutates the original object in place via `Object.freeze()`.
+* It does NOT create a copy. If you need a frozen copy, call {@link deepClone} first.
+*
+* **Circular references**: Handled safely via an internal `Set` that tracks visited objects,
+* preventing infinite recursion.
+*
+* **Supported types**: Only arrays and plain objects (including their Symbol-keyed and
+* non-enumerable properties) are recursively frozen. Other object types (Date, Map, Set, etc.)
+* are left untouched.
+*
+* **变更**：此函数通过 `Object.freeze()` 原地修改原始对象，不会创建副本。
+* 如需冻结副本，请先调用 {@link deepClone}。
+*
+* **循环引用**：通过内部 `Set` 跟踪已访问对象来安全处理，防止无限递归。
+*
+* **支持的类型**：仅递归冻结数组和普通对象（包括其 Symbol 键和不可枚举属性）。
+* 其他对象类型（Date、Map、Set 等）不受影响。
+*
+* @example
+* ```ts
+* const obj = deepFreeze({ a: { b: 1 }, c: [1, 2, 3] })
+* // All nested objects are now immutable
+* // obj.a.b = 2 // TypeError in strict mode
+* ```
+*
+* @example
+* Circular reference safety:
+* ```ts
+* const obj: any = { a: 1 }
+* obj.self = obj
+* deepFreeze(obj) // Does not cause stack overflow
+* ```
+*/
+function deepFreeze(obj) {
+	freezeImpl(obj, /* @__PURE__ */ new Set());
+	return obj;
+}
+function freezeImpl(value, visited) {
+	if (isNull(value) || typeof value !== "object") return;
+	if (visited.has(value)) return;
+	visited.add(value);
+	const freeze = Object.freeze;
+	if (isArray(value)) {
+		for (let i = 0; i < value.length; i++) freezeImpl(value[i], visited);
+		freeze(value);
+	} else if (isPlainObject(value)) {
+		const allKeys = [...Object.getOwnPropertyNames(value), ...Object.getOwnPropertySymbols(value)];
+		for (let i = 0; i < allKeys.length; i++) freezeImpl(value[allKeys[i]], visited);
+		freeze(value);
+	}
+}
+//#endregion
+//#region src/object/deep-merge.ts
+/**
+* Deep merge
+*
+* The first argument is the target object, the rest are the sources.
+* The target object will be mutated and returned.
+*
+* 深度合并
+*
+* 第一个参数是目标对象，其余的是源对象。
+* 目标对象将被修改并返回。
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param target - The target object / 目标对象
+* @param sources - The source objects / 源对象
+* @returns The merged object / 合并后的对象
+*
+* @remarks
+* This function mutates the target object in place and returns it.
+* Dangerous keys (`__proto__`, `constructor`, `prototype`) are silently filtered out and not merged.
+* Only plain objects (those with `Object.prototype` or `null` as prototype) are deep-merged; other types (e.g., arrays, Date, Map, Set) are replaced rather than merged.
+* For array-aware merging, use {@link deepMergeWithArray} instead.
+*
+* 此函数会直接修改目标对象并将其返回。
+* 危险键（`__proto__`、`constructor`、`prototype`）会被静默过滤，不会参与合并。
+* 只有普通对象（原型为 `Object.prototype` 或 `null` 的对象）会进行深度合并；其他类型（如数组、Date、Map、Set）会被直接替换。
+* 如需合并数组，请使用 {@link deepMergeWithArray}。
+*/
+function deepMerge(target, ...sources) {
+	for (let s = 0; s < sources.length; s++) {
+		const source = sources[s];
+		if (!isMergableObject(source)) continue;
+		if (!isMergableObject(target)) continue;
+		const keys = Object.keys(source);
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i];
+			if (DANGEROUS_KEYS.has(key)) continue;
+			const sourceVal = source[key];
+			if (isMergableObject(sourceVal)) {
+				const targetVal = target[key];
+				if (isMergableObject(targetVal)) deepMerge(targetVal, sourceVal);
+				else target[key] = deepMerge({}, sourceVal);
+			} else target[key] = sourceVal;
+		}
+	}
+	return target;
+}
+/**
+* Deep merge
+*
+* Differs from `deepMerge` in that it merges arrays instead of overriding them.
+*
+* The first argument is the target object, the rest are the sources.
+* The target object will be mutated and returned.
+*
+* 深度合并
+*
+* 与 `deepMerge` 不同，它合并数组而不是覆盖它们。
+*
+* 第一个参数是目标对象，其余的是源。
+* 目标对象将被修改并返回。
+*
+* @category Object
+*
+* @param target - The target object / 目标对象
+* @param sources - The source objects / 源对象
+* @returns The merged object / 合并后的对象
+*/
+function deepMergeWithArray(target, ...sources) {
+	for (let s = 0; s < sources.length; s++) {
+		const source = sources[s];
+		if (isNil(source)) continue;
+		if (isArray(target) && isArray(source)) target.push(...source);
+		if (!isMergableObject(target) || !isMergableObject(source)) continue;
+		const keys = Object.keys(source);
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i];
+			if (DANGEROUS_KEYS.has(key)) continue;
+			const sourceVal = source[key];
+			if (isArray(sourceVal)) {
+				const targetVal = target[key];
+				if (isArray(targetVal)) deepMergeWithArray(targetVal, sourceVal);
+				else if (isNil(targetVal)) {
+					target[key] = [];
+					deepMergeWithArray(target[key], sourceVal);
+				} else target[key] = sourceVal;
+			} else if (isMergableObject(sourceVal)) {
+				const targetVal = target[key];
+				if (isMergableObject(targetVal)) deepMergeWithArray(targetVal, sourceVal);
+				else {
+					target[key] = {};
+					deepMergeWithArray(target[key], sourceVal);
+				}
+			} else target[key] = sourceVal;
+		}
+	}
+	return target;
+}
+function isMergableObject(item) {
+	if (typeof item !== "object" || isNull(item)) return false;
+	const proto = Object.getPrototypeOf(item);
+	if (isNull(proto)) return true;
+	return proto === Object.prototype;
+}
+//#endregion
+//#region src/object/delete-key.ts
+/**
+* Delete keys from object
+*
+* Use `Reflect.deleteProperty` to remove a specified key from an object, rather than using the `delete` operator.
+*
+* 从对象中删除指定的键
+*
+* 使用 `Reflect.deleteProperty` 从对象中删除指定的键，而不是使用 `delete` 操作符。
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to delete keys from / 要从中删除键的对象
+* @param key - The keys to delete / 要删除的键
+* @returns Whether any keys were deleted / 是否成功删除了键
+*
+* @example
+* ```ts
+* const obj = { a: 1, b: 2 }
+* deleteKey(obj, 'a') // true
+* deleteKey(obj, ['b', 'c']) // true
+* ```
+*/
+function deleteKey(obj, key) {
+	if (isArray(key)) {
+		if (!key.length) return false;
+		let anyDeleted = false;
+		for (const k of key) if (del(obj, k)) anyDeleted = true;
+		return anyDeleted;
+	} else return del(obj, key);
+}
+//#endregion
+//#region src/object/entries.ts
+/**
+* Strict typed `Object.entries`
+*
+* 严格类型的 `Object.entries`
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The object to get entries from. 要获取键值对的对象
+* @returns An array of key-value pairs. 键值对数组
+*
+* @see {@link objectKeys} — for typed Object.keys
+* @see {@link objectKeys} — 类型安全的 Object.keys
+*
+* @example
+* ```ts
+* objectEntries({ a: 1, b: 2 }) // => [['a', 1], ['b', 2]]
+* ```
+*/
+function objectEntries(obj) {
+	return Object.entries(obj);
+}
+//#endregion
+//#region src/object/equal.ts
+/**
+* Deep equality two values, support array / object / date / set / map / regexp
+*
+* 深度比较两个值是否相等，支持数组、对象、日期、集合、映射、正则表达式等类型值
+*
+* @category Object
+*
+* @param v1 - The first value to compare. 第一个要比较的值
+* @param v2 - The second value to compare. 第二个要比较的值
+* @returns True if the values are deeply equal, false otherwise. 如果值深度相等则返回true，否则返回false
+*
+* @remarks
+* This function uses an internal `Map` stack to handle circular references safely, preventing infinite recursion.
+* `NaN` is considered equal to `NaN` (via `Object.is`), which differs from the default `===` behavior.
+*
+* 此函数使用内部的 `Map` 栈来安全处理循环引用，防止无限递归。
+* `NaN` 被认为等于 `NaN`（通过 `Object.is` 判断），这与默认的 `===` 行为不同。
+* When comparing RegExp objects, only `source` and `flags` are compared; the `lastIndex` property is ignored.
+* If you need to compare `lastIndex`, reset it manually before calling this function.
+*
+* 比较正则表达式时，仅比较 `source` 和 `flags`，`lastIndex` 属性会被忽略。
+* 如需比较 `lastIndex`，请在调用此函数前手动重置。
+*
+* @example
+* ```ts
+* deepEqual([1, 2, 3], [1, 2, 3]) // true
+* deepEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // true
+* deepEqual(new Date(), new Date()) // true
+* deepEqual(new Set([1, 2, 3]), new Set([1, 2, 3])) // true
+* deepEqual(new Map([['a', 1], ['b', 2]]), new Map([['a', 1], ['b', 2]])) // true
+* deepEqual(new RegExp('a'), new RegExp('a')) // true
+* deepEqual('hello', 'hello') // true
+* deepEqual('hello', 'world') // false
+* deepEqual(null, null) // true
+* deepEqual(undefined, undefined) // true
+* deepEqual(NaN, NaN) // true
+* ```
+*/
+function deepEqual(v1, v2) {
+	return deepEqualWithStack(v1, v2, /* @__PURE__ */ new Map());
+}
+function deepEqualWithStack(v1, v2, stack) {
+	if (Object.is(v1, v2)) return true;
+	if (v1 == null || v2 == null) return false;
+	const vt1 = typeof v1;
+	if (vt1 !== typeof v2) return false;
+	if (vt1 !== "object") return false;
+	if (stack.has(v1)) return stack.get(v1) === v2;
+	stack.set(v1, v2);
+	const t1 = typeOf(v1);
+	if (t1 !== typeOf(v2)) return false;
+	if (t1 === "array") {
+		const len = v1.length;
+		if (len !== v2.length) return false;
+		for (let i = 0; i < len; i++) if (!deepEqualWithStack(v1[i], v2[i], stack)) return false;
+		return true;
+	}
+	if (t1 === "object") {
+		const keys = objectKeys(v1);
+		if (keys.length !== objectKeys(v2).length) return false;
+		for (let i = 0; i < keys.length; i++) {
+			const key = keys[i];
+			if (!hasOwn(v2, key) || !deepEqualWithStack(v1[key], v2[key], stack)) return false;
+		}
+		return true;
+	}
+	if (t1 === "date") return v1.getTime() === v2.getTime();
+	if (t1 === "set") {
+		if (v1.size !== v2.size) return false;
+		const v2Items = [...v2];
+		for (const item of v1) if (!v2Items.some((v2Item) => deepEqualWithStack(item, v2Item, new Map(stack)))) return false;
+		return true;
+	}
+	if (t1 === "map") {
+		if (v1.size !== v2.size) return false;
+		const primitiveKeyMap = /* @__PURE__ */ new Map();
+		const complexEntries = [];
+		for (const [v2Key, v2Value] of v2) if (isString(v2Key) || isNumber(v2Key)) primitiveKeyMap.set(v2Key, v2Value);
+		else complexEntries.push([v2Key, v2Value]);
+		for (const [key, value] of v1) if (isString(key) || isNumber(key)) {
+			if (!primitiveKeyMap.has(key)) return false;
+			if (!deepEqualWithStack(value, primitiveKeyMap.get(key), new Map(stack))) return false;
+		} else {
+			let found = false;
+			for (const [v2Key, v2Value] of complexEntries) if (deepEqualWithStack(key, v2Key, new Map(stack)) && deepEqualWithStack(value, v2Value, new Map(stack))) {
+				found = true;
+				break;
+			}
+			if (!found) return false;
+		}
+		return true;
+	}
+	if (t1 === "regexp") return v1.source === v2.source && v1.flags === v2.flags;
+	return false;
+}
+//#endregion
+//#region src/object/get.ts
+/**
+* Retrieve a value from an object using dot path
+*
+* 使用 dot path 从一个对象中获取一个值
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param source - The source object. 源对象
+* @param path - The dot path to retrieve. 要获取的路径
+* @returns The value at the specified path. 指定路径处的值
+*
+* @example
+* ```ts
+* objectGet({ a: 1 }, 'a') // => 1
+* objectGet({ a: { b: 2 } }, 'a.b') // => 2
+* objectGet({ a: [{ b: 2 }] }, 'a[0].b') // => 2
+* ```
+*/
+function objectGet(source, path) {
+	const keys = parseObjectPath(path);
+	let res = source;
+	for (const k of keys) res = res?.[k];
+	return res;
+}
+function parseObjectPath(path) {
+	const keys = [];
+	let i = 0;
+	while (i < path.length) {
+		if (path[i] === ".") {
+			i++;
+			continue;
+		}
+		if (path[i] === "[") {
+			const end = path.indexOf("]", i);
+			if (end === -1) break;
+			const content = path.slice(i + 1, end);
+			if (content === "") {
+				i = end + 1;
+				continue;
+			}
+			const first = content[0];
+			const last = content[content.length - 1];
+			if (first === "'" && last === "'" || first === "\"" && last === "\"") keys.push(content.slice(1, -1));
+			else keys.push(content);
+			i = end + 1;
+		} else {
+			let end = i;
+			while (end < path.length && path[end] !== "." && path[end] !== "[") end++;
+			keys.push(path.slice(i, end));
+			i = end;
+		}
+	}
+	return keys;
+}
+//#endregion
+//#region src/object/map.ts
+/**
+* Map key/value pairs for an object, and construct a new one
+*
+* 为一个对象映射键值对，并构造一个新对象
+*
+* @category Object
+*
+* @typeParam K - The type of the key (extends PropertyKey) / 键的类型（继承 PropertyKey）
+* @typeParam V - The type of the value / 值的类型
+* @param obj - The source object. 源对象
+* @param mapper - The mapper function to transform key/value pairs. 用于转换键值对的映射函数
+* @returns A new object with transformed key/value pairs. 具有转换后键值对的新对象
+*
+* @remarks
+* Dangerous keys (`__proto__`, `constructor`, `prototype`) are silently filtered out from the result object.
+* If the mapper function returns `undefined` for a key/value pair, that entry is removed from the result.
+*
+* 危险键（`__proto__`、`constructor`、`prototype`）会被静默过滤，不会出现在结果对象中。
+* 如果映射函数返回 `undefined`，则该键值对会从结果中被移除。
+*
+* @example
+* ```ts
+* // Transform:
+* objectMap({ a: 1, b: 2 }, (k, v) => [k.toString().toUpperCase(), v.toString()])
+* // { A: '1', B: '2' }
+* ```
+*
+* @example
+* ```ts
+* // Swap key/value:
+* objectMap({ a: 1, b: 2 }, (k, v) => [v, k])
+* // { 1: 'a', 2: 'b' }
+* ```
+*
+* @example
+* ```ts
+* // Filter keys:
+* objectMap({ a: 1, b: 2 }, (k, v) => k === 'a' ? undefined : [k, v])
+* // { b: 2 }
+* ```
+*/
+function objectMap(obj, mapper) {
+	return Object.fromEntries(Object.entries(obj).map(([k, v]) => mapper(k, v)).filter((entry) => !isUndefined(entry)).filter(([k]) => !DANGEROUS_KEYS.has(k)));
+}
+//#endregion
+//#region src/object/ObjectIterator.ts
+/**
+* A lazy-evaluated iterator for objects with chainable operations
+*
+* 支持链式操作的惰性计算对象迭代器，使用 Generator 实现单次遍历
+*
+* @typeParam K - The key type of entries. 条目的键类型
+* @typeParam V - The value type of entries. 条目的值类型
+*
+* @category Object
+*
+* @example
+* ```ts
+* const result = new ObjectIterator({ a: 1, b: 2, c: 3 })
+*   .filter((k, v) => v > 1)
+*   .map((k, v) => [k.toUpperCase(), v * 2] as const)
+*   .toArray()
+* // => [['B', 4], ['C', 6]]
+* ```
+*/
+var ObjectIterator = class ObjectIterator {
+	/**
+	* The source object to iterate over. 要迭代的源对象
+	*/
+	source;
+	/**
+	* The list of operations to be applied lazily
+	*
+	* 要惰性应用的操作列表
+	*/
+	operations;
+	/**
+	* Creates a new ObjectIterator instance
+	*
+	* 创建一个新的 ObjectIterator 实例
+	*
+	* @param obj - The source object to iterate. 要迭代的源对象
+	*/
+	constructor(obj) {
+		this.source = objectEntries(obj);
+		this.operations = [];
+	}
+	/**
+	* Creates a new iterator with existing source and operations
+	*
+	* 使用源数据和操作创建新迭代器
+	*/
+	static create(source, operations) {
+		const iterator = new ObjectIterator({});
+		iterator.source = source;
+		iterator.operations = operations;
+		return iterator;
+	}
+	/**
+	* Creates a generator that applies all operations in a single pass
+	*
+	* 创建一个在单次遍历中应用所有操作的生成器
+	*/
+	*iterate() {
+		for (const entry of this.source) {
+			let current = entry;
+			let shouldYield = true;
+			for (const op of this.operations) {
+				if (!shouldYield) break;
+				switch (op.type) {
+					case OPERATION_FILTER:
+						if (!op.predicate(current[0], current[1])) shouldYield = false;
+						break;
+					case "map":
+						current = op.transform(current[0], current[1]);
+						break;
+				}
+			}
+			if (shouldYield) yield current;
+		}
+	}
+	/**
+	* Filters entries based on a predicate function
+	*
+	* 根据断言函数过滤条目
+	*
+	* @param predicate - The predicate function. 断言函数
+	* @returns A new ObjectIterator instance with the filter operation. 带有过滤操作的新 ObjectIterator 实例
+	*
+	* @example
+	* ```ts
+	* new ObjectIterator({ a: 1, b: 2 })
+	*   .filter((k, v) => v > 1)
+	*   .toArray()
+	* // => [['b', 2]]
+	* ```
+	*/
+	filter(predicate) {
+		if (!isFunction(predicate)) throw new TypeError("predicate must be a function");
+		return ObjectIterator.create(this.source, [...this.operations, {
+			type: OPERATION_FILTER,
+			predicate
+		}]);
+	}
+	/**
+	* Transforms entries using a transform function
+	*
+	* 使用转换函数转换条目
+	*
+	* @typeParam NK - The new key type after transformation. 转换后的新键类型
+	* @typeParam NV - The new value type after transformation. 转换后的新值类型
+	* @param transform - The transform function. 转换函数
+	* @returns A new ObjectIterator instance with the map operation. 带有映射操作的新 ObjectIterator 实例
+	*
+	* @example
+	* ```ts
+	* new ObjectIterator({ a: 1, b: 2 })
+	*   .map((k, v) => [k.toUpperCase(), v * 2] as const)
+	*   .toArray()
+	* // => [['A', 2], ['B', 4]]
+	* ```
+	*/
+	map(transform) {
+		if (!isFunction(transform)) throw new TypeError("transform must be a function");
+		return ObjectIterator.create(this.source, [...this.operations, {
+			type: "map",
+			transform
+		}]);
+	}
+	/**
+	* Executes all chained operations and returns the final result array
+	*
+	* 执行所有链式操作并返回最终结果数组
+	*
+	* @returns An array of [key, value] pairs. [key, value] 对数组
+	*
+	* @example
+	* ```ts
+	* new ObjectIterator({ a: 1, b: 2 }).toArray()
+	* // => [['a', 1], ['b', 2]]
+	* ```
+	*/
+	toArray() {
+		return [...this.iterate()];
+	}
+	/**
+	* Executes all chained operations and returns the final result object
+	*
+	* 执行所有链式操作并返回最终结果对象
+	*
+	* @returns The final result object. 最终结果对象
+	*
+	* @example
+	* ```ts
+	* new ObjectIterator({ a: 1, b: 2 })
+	* .map((k, v) => [k.toUpperCase(), v * 2] as const).toObject()
+	* // => { A: 2, B: 4 }
+	* ```
+	*/
+	toObject() {
+		const result = {};
+		for (const [key, value] of this.iterate()) result[key] = value;
+		return result;
+	}
+	/**
+	* Implements the iterable protocol, allowing ObjectIterator to be used
+	* in for...of loops, spread operator, and other iterable consumers
+	*
+	* 实现可迭代协议，允许 ObjectIterator 用于 for...of 循环、展开运算符及其他可迭代消费者
+	*
+	* @returns An iterator for the processed entries. 处理后条目的迭代器
+	*
+	* @example
+	* ```ts
+	* // for...of loop
+	* for (const [key, value] of new ObjectIterator({ a: 1, b: 2 })) {
+	*   console.log(key, value)
+	* }
+	*
+	* // spread operator
+	* const entries = [...new ObjectIterator({ a: 1, b: 2 })]
+	*
+	* // Array.from
+	* const arr = Array.from(new ObjectIterator({ a: 1, b: 2 }))
+	* ```
+	*/
+	[Symbol.iterator]() {
+		return this.iterate();
+	}
+};
+//#endregion
+//#region src/object/omit.ts
+/**
+* Creates a new object with specified keys omitted.
+*
+* 创建一个新对象，省略指定的键。
+*
+* @category Object
+*
+* @see {@link pick} and {@link pickBy} — for the inverse operation
+* @see {@link pick} 和 {@link pickBy} — 反向操作
+*
+* @param obj - The source object. 源对象
+* @param keys - The keys to omit. 要省略的键
+* @returns A new object with the specified keys omitted. 省略了指定键的新对象
+*
+* @example
+* ```ts
+* omit({ a: 1, b: 2 }, ['a']) // => { b: 2 }
+* ```
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*/
+function omit(obj, keys) {
+	const res = Object.create(Object.getPrototypeOf(obj));
+	Object.assign(res, obj);
+	for (const key of keys) if (hasOwn(obj, key)) Reflect.deleteProperty(res, key);
+	return res;
+}
+/**
+* Creates a new object with properties that do not satisfy the predicate.
+*
+* 创建一个新对象，排除满足 predicate 的属性
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The source object. 源对象
+* @param predicate - The predicate function. 谓词函数
+* @returns A new object without properties that satisfy the predicate. 排除满足谓词属性的新对象
+*
+* @example
+* ```ts
+* omitBy({ a: 1, b: 2, c: 3 }, (v) => v > 1) // => { a: 1 }
+* ```
+*/
+function omitBy(obj, predicate) {
+	const res = Object.create(Object.getPrototypeOf(obj));
+	for (const key of objectKeys(obj)) if (!predicate(obj[key], key)) res[key] = obj[key];
+	return res;
+}
+//#endregion
+//#region src/object/pick.ts
+/**
+* Creates a new object composed of the picked object properties.
+*
+* 创建一个由所选对象属性组成的新对象。
+*
+* @category Object
+*
+* @see {@link omit} and {@link omitBy} — for the inverse operation
+* @see {@link omit} 和 {@link omitBy} — 反向操作
+*
+* @param obj - The source object. 源对象
+* @param keys - The keys to pick. 要选择的键
+* @returns A new object with only the picked properties. 仅包含所选属性的新对象
+*
+* @example
+* ```ts
+* pick({ a: 1, b: 2 }, ['a']) // => { a: 1 }
+* ```
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*/
+function pick(obj, keys) {
+	const res = Object.create(Object.getPrototypeOf(obj));
+	for (const key of keys) if (hasOwn(obj, key)) res[key] = obj[key];
+	return res;
+}
+/**
+* Creates a new object with properties that satisfy the predicate.
+*
+* 创建一个新对象，仅包含满足 predicate 的属性
+*
+* @category Object
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param obj - The source object. 源对象
+* @param predicate - The predicate function. 谓词函数
+* @returns A new object with properties that satisfy the predicate. 满足谓词的新对象
+*
+* @example
+* ```ts
+* pickBy({ a: 1, b: 2, c: 3 }, (v) => v > 1) // => { b: 2, c: 3 }
+* ```
+*/
+function pickBy(obj, predicate) {
+	const res = Object.create(Object.getPrototypeOf(obj));
+	for (const key of objectKeys(obj)) if (predicate(obj[key], key)) res[key] = obj[key];
+	return res;
+}
+//#endregion
+//#region src/predicate/is-json-object.ts
+/**
+* Checks if a value is a JSON object.
+*
+* 检查一个值是否为 JSON 对象。
+*
+* @category Predicate
+*
+* @param obj - The value to check. 要检查的值
+*
+* @returns True if the value is a JSON object, false otherwise. 如果值为 JSON 对象则返回 true，否则返回 false
+*
+* @remarks
+* This function recursively validates each property value using `isJSONValue`. For deeply nested objects,
+* this can result in a large call stack and may hit the stack size limit of the runtime.
+*
+* 该函数使用 `isJSONValue` 递归验证每个属性值。对于深度嵌套的对象，
+* 这可能导致较大的调用栈，并可能达到运行时的栈大小限制。
+*
+* @example
+* ```ts
+* isJSONObject({ a: 1 }) // => true
+* isJSONObject({ a: () => {} }) // => false
+* ```
+*/
+function isJSONObject(obj) {
+	if (!isPlainObject(obj)) return false;
+	const keys = objectKeys(obj);
+	for (let i = 0; i < keys.length; i++) {
+		const value = obj[keys[i]];
+		if (!isJSONValue(value)) return false;
+	}
+	return true;
+}
+//#endregion
+//#region src/predicate/is-json-value.ts
+/**
+* Checks if a given value is a valid JSON value.
+*
+* 检查给定值是否为有效的 JSON 值。
+*
+* @category Predicate
+*
+* @param value - The value to check. 要检查的值
+*
+* @returns True if the value is a valid JSON value, false otherwise. 如果值是有效的 JSON 值则返回 true，否则返回 false
+*
+* @remarks
+* For numeric values, this function uses `isFinite()` to check validity. `NaN` and `Infinity` return `false`
+* because they are not valid JSON values per the JSON specification.
+*
+* 对于数值，该函数使用 `isFinite()` 检查有效性。`NaN` 和 `Infinity` 返回 `false`，
+* 因为根据 JSON 规范，它们不是有效的 JSON 值。
+*
+* @see {@link isJSONArray} and {@link isJSONObject} — for structured JSON validation
+* @see {@link isJSONArray} 和 {@link isJSONObject} — 结构化 JSON 验证
+*
+* @example
+* ```ts
+* isJSONValue('hello') // => true
+* isJSONValue(42) // => true
+* isJSONValue(true) // => true
+* isJSONValue(null) // => true
+* isJSONValue([1, 2, 3]) // => true
+* isJSONValue({ a: 1 }) // => true
+* isJSONValue(() => {}) // => false
+* isJSONValue(Symbol()) // => false
+* isJSONValue(undefined) // => false
+* isJSONValue(NaN) // => false
+* isJSONValue(Infinity) // => false
+* ```
+*/
+function isJSONValue(value) {
+	switch (typeof value) {
+		case T_OBJECT: return value === null || isJSONArray(value) || isJSONObject(value);
+		case T_NUMBER: return isFinite(value);
+		case T_STRING:
+		case T_BOOLEAN: return true;
+		default: return false;
+	}
+}
+//#endregion
+//#region src/predicate/is-json-array.ts
+/**
+* Checks if a given value is a valid JSON array.
+*
+* 检查给定值是否为有效的 JSON 数组。
+*
+* @category Predicate
+*
+* @param value - The value to check. 要检查的值
+*
+* @returns True if the value is a valid JSON array, false otherwise. 如果值是有效的 JSON 数组则返回 true，否则返回 false
+*
+* @remarks
+* This function recursively validates each element using `isJSONValue`. For deeply nested arrays,
+* this can result in a large call stack and may hit the stack size limit of the runtime.
+*
+* 该函数使用 `isJSONValue` 递归验证每个元素。对于深度嵌套的数组，
+* 这可能导致较大的调用栈，并可能达到运行时的栈大小限制。
+*
+* @example
+* ```ts
+* isJSONArray([1, 2, 3]) // => true
+* isJSONArray([() => {}]) // => false
+* ```
+*/
+function isJSONArray(value) {
+	if (!Array.isArray(value)) return false;
+	return value.every((item) => isJSONValue(item));
+}
+//#endregion
+//#region src/predicate/is-keyof.ts
+/**
+* Check if an object has a property.
+*
+* 检查一个对象是否有属性。
+*
+* @category Predicate
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param obj - The object to check. 要检查的对象
+* @param key - The key to check for. 要检查的键
+*
+* @returns True if the object has the property, false otherwise. 如果对象具有该属性则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isKeyof({ a: 1, b: 2 }, 'a') // => true
+* isKeyof({ a: 1, b: 2 }, 'c') // => false
+* ```
+*/
+function isKeyof(obj, key) {
+	return key in obj;
+}
+//#endregion
+//#region src/predicate/is-number.ts
+/**
+* Checks if the input is a number.
+*
+* 检查输入是否为数字。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a number, false otherwise. 如果值为数字则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isNumber(42) // => true
+* isNumber('42') // => false
+* ```
+*/
+function isNumber(v) {
+	return isTypeof(v, T_NUMBER);
+}
+//#endregion
+//#region src/predicate/is-primitive.ts
+/**
+* Checks if the input is a primitive.
+*
+* 检查输入是否为原始值。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a primitive, false otherwise. 如果值为原始值则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isPrimitive(42) // => true
+* isPrimitive({}) // => false
+* ```
+*/
+function isPrimitive(v) {
+	return isNil(v) || typeof v !== "object" && typeof v !== "function";
+}
+//#endregion
+//#region src/predicate/is-promise.ts
+/**
+* Checks if the input is a Promise.
+*
+* 检查输入是否为 Promise。
+*
+* @category Predicate
+*
+* @typeParam T - The type of the Promise resolution value / Promise 解析值的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a Promise, false otherwise. 如果值为 Promise 则返回 true，否则返回 false
+*
+* @remarks
+* This function relies on `instanceof Promise`, which fails for promises originating from different realms
+* (e.g., iframes or separate VM contexts). It does **not** detect "thenable" objects (objects with a `then` method
+* that behave like promises).
+*
+* 该函数依赖于 `instanceof Promise`，对于来自不同环境（例如 iframe 或独立 VM 上下文）的 Promise 无法检测。
+* 它**不**检测 "thenable" 对象（具有 `then` 方法并像 Promise 一样行为的对象）。
+*
+* @example
+* ```ts
+* isPromise(Promise.resolve()) // => true
+* isPromise({}) // => false
+* ```
+*/
+function isPromise(v) {
+	return isTypeof(v, T_PROMISE);
+}
+//#endregion
+//#region src/predicate/is-regexp.ts
+/**
+* Checks if the input is a regexp.
+*
+* 检查输入是否为正则表达式。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a regexp, false otherwise. 如果值为正则表达式则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isRegexp(/abc/) // => true
+* isRegexp('/abc/') // => false
+* ```
+*/
+function isRegexp(v) {
+	return isTypeof(v, T_REGEXP);
+}
+//#endregion
+//#region src/predicate/is-safe-integer.ts
+/**
+* A strongly-typed version of `Number.isSafeInteger()`.
+*
+* `Number.isSafeInteger()` 的强类型版本。
+*
+* @category Predicate
+*
+* @typeParam T - The type of the value to check / 要检查的值的类型
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a safe integer, false otherwise. 如果值为安全整数则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isSafeInteger(1) // => true
+* isSafeInteger(0) // => true
+* isSafeInteger(Number.MAX_SAFE_INTEGER) // => true
+* isSafeInteger(Number.MAX_SAFE_INTEGER + 1) // => false
+* isSafeInteger(1.1) // => false
+* ```
+*/
+function isSafeInteger(v) {
+	return Number.isSafeInteger(v);
+}
+//#endregion
+//#region src/predicate/is-symbol.ts
+/**
+* Checks if the input is a symbol.
+*
+* 检查输入是否为符号。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is a symbol, false otherwise. 如果值为符号则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isSymbol(Symbol('foo')) // => true
+* isSymbol('foo') // => false
+* ```
+*/
+function isSymbol(v) {
+	return isTypeof(v, T_SYMBOL);
+}
+//#endregion
+//#region src/predicate/is-undefined.ts
+/**
+* Checks if the input is undefined.
+*
+* 检查输入是否为 undefined。
+*
+* @category Predicate
+*
+* @param v - The value to check. 要检查的值
+*
+* @returns True if the value is undefined, false otherwise. 如果值为 undefined 则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isUndefined(undefined) // => true
+* isUndefined(null) // => false
+* ```
+*/
+function isUndefined(v) {
+	return v === void 0;
+}
+//#endregion
+//#region src/predicate/is-window.ts
+/**
+* Checks if the current runtime is a window environment.
+*
+* 检查当前运行时是否为浏览器窗口环境。
+*
+* @category Predicate
+*
+* @returns True if in a window environment, false otherwise. 如果在窗口环境中则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* // Returns a boolean, runtime-dependent
+* isWindow() // => true | false
+* ```
+*/
+function isWindow() {
+	/* istanbul ignore next -- @preserve */
+	return typeof window !== "undefined" && isTypeof(window, "window");
+}
+//#endregion
+//#region src/array/ArrayIterator.ts
+/**
+* An iterator class for arrays with chainable operations and lazy evaluation
+*
+* 支持链式操作和惰性计算的数组迭代器类
+*
+* @category Array
+*
+* @remarks
+* Each chained operation (.filter(), .map(), .drop(), .take()) creates a shallow copy of the current operation list (O(k) where k is the number of chained calls). Excessive chaining may cause quadratic overhead. Consider limiting chain depth and combining filter/map logic where possible.
+*
+* 每次链式调用（.filter()、.map()、.drop()、.take()）都会浅拷贝当前操作列表（O(k)，k 为链式调用次数）。大量链式调用可能产生平方级开销。建议控制链式调用深度，并在可能时合并 filter/map 逻辑。
+*
+* @example
+* ```ts
+* const result = new ArrayIterator([1, 2, 3, 4, 5])
+*   .filter((v) => v > 2)
+*   .map((v) => v * 2)
+*   .take(2)
+*   .toArray()
+* // => [6, 8]
+* ```
+*/
+var ArrayIterator = class ArrayIterator {
+	/**
+	* The source array to iterate over. 要迭代的源数组
+	*/
+	source;
+	/**
+	* The list of operations to be applied lazily
+	*
+	* 要惰性应用的操作列表
+	*/
+	operations;
+	/**
+	* Creates a new ArrayIterator instance
+	*
+	* 创建一个新的 ArrayIterator 实例
+	*
+	* @param array - The source array to iterate. 要迭代的源数组
+	*/
+	constructor(array) {
+		this.source = array;
+		this.operations = [];
+	}
+	/**
+	* Creates a new iterator with existing source and operations
+	*
+	* 使用现有源数据和操作创建新迭代器
+	*/
+	static create(source, operations) {
+		const iterator = new ArrayIterator(source);
+		Object.assign(iterator, { operations });
+		return iterator;
+	}
+	/**
+	* Creates a generator that applies all operations in a single pass
+	*
+	* 创建一个在单次遍历中应用所有操作的生成器
+	*/
+	*iterate() {
+		const firstTakeIndex = this.operations.findIndex((op) => op.type === OPERATION_TAKE);
+		const firstDropIndex = this.operations.findIndex((op) => op.type === OPERATION_DROP);
+		let hasFilterBeforeLimit = false;
+		const limitIndex = firstTakeIndex !== -1 ? firstTakeIndex : firstDropIndex;
+		if (limitIndex !== -1) for (let i = 0; i < limitIndex; i++) {
+			const op = this.operations[i];
+			if (op && op.type === "filter") {
+				hasFilterBeforeLimit = true;
+				break;
+			}
+		}
+		let minTakeLimit = Infinity;
+		let dropCount = 0;
+		let dropBeforeTake = 0;
+		for (const op of this.operations) {
+			if (op.type === "take") minTakeLimit = Math.min(minTakeLimit, op.limit);
+			if (op.type === "drop") dropCount += op.count;
+		}
+		if (firstTakeIndex !== -1) for (let i = 0; i < firstTakeIndex; i++) {
+			const op = this.operations[i];
+			if (op && op.type === "drop") dropBeforeTake += op.count;
+		}
+		let processedCount = 0;
+		let yieldedCount = 0;
+		let droppedCount = 0;
+		for (let i = 0; i < this.source.length; i++) {
+			const entry = this.source[i];
+			if (!hasFilterBeforeLimit && firstTakeIndex !== -1 && processedCount >= minTakeLimit + dropBeforeTake) break;
+			let current = entry;
+			let shouldYield = true;
+			let shouldDrop = false;
+			for (const op of this.operations) {
+				if (!shouldYield) break;
+				switch (op.type) {
+					case OPERATION_FILTER:
+						if (!op.predicate(current, processedCount)) shouldYield = false;
+						break;
+					case "map":
+						current = op.transform(current, processedCount);
+						break;
+					case OPERATION_TAKE: break;
+					case OPERATION_DROP:
+						if (droppedCount < dropCount) shouldDrop = true;
+						break;
+				}
+			}
+			processedCount++;
+			if (shouldDrop && droppedCount < dropCount) {
+				droppedCount++;
+				continue;
+			}
+			if (shouldYield) {
+				yieldedCount++;
+				yield current;
+			}
+			if (hasFilterBeforeLimit && yieldedCount >= minTakeLimit) break;
+		}
+	}
+	/**
+	* Filters elements based on a predicate function
+	*
+	* 根据断言函数过滤元素
+	*
+	* @param predicate - The predicate function. 断言函数
+	* @returns A new ArrayIterator instance with the filter operation. 带有过滤操作的新 ArrayIterator 实例
+	*
+	* @throws {TypeError} When predicate is not a function. 当 predicate 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3, 4])
+	*   .filter((v) => v > 2)
+	*   .toArray()
+	* // => [3, 4]
+	* ```
+	*/
+	filter(predicate) {
+		if (!isFunction(predicate)) throw new TypeError("predicate must be a function");
+		return ArrayIterator.create(this.source, [...this.operations, {
+			type: OPERATION_FILTER,
+			predicate
+		}]);
+	}
+	/**
+	* Transforms elements using a transform function
+	*
+	* 使用转换函数转换元素
+	*
+	* @typeParam R - The type of transformed elements. 转换后的元素类型
+	* @param transform - The transform function. 转换函数
+	* @returns A new ArrayIterator instance with the map operation. 带有映射操作的新 ArrayIterator 实例
+	*
+	* @throws {TypeError} When transform is not a function. 当 transform 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3])
+	*   .map((v) => v * 2)
+	*   .toArray()
+	* // => [2, 4, 6]
+	* ```
+	*/
+	map(transform) {
+		if (!isFunction(transform)) throw new TypeError("transform must be a function");
+		return ArrayIterator.create(this.source, [...this.operations, {
+			type: "map",
+			transform
+		}]);
+	}
+	/**
+	* Takes the first N elements
+	*
+	* 获取前 N 个元素
+	*
+	* @param limit - The maximum number of elements to take. 要获取的最大元素数
+	* @returns A new ArrayIterator instance with the take operation. 带有获取操作的新 ArrayIterator 实例
+	*
+	* @throws {TypeError} When limit is not a non-negative integer. 当 limit 不是非负整数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3, 4, 5])
+	*   .take(3)
+	*   .toArray()
+	* // => [1, 2, 3]
+	* ```
+	*/
+	take(limit) {
+		if (!isNumber(limit) || !isInteger(limit) || limit < 0) throw new TypeError("limit must be a non-negative integer");
+		return ArrayIterator.create(this.source, [...this.operations, {
+			type: OPERATION_TAKE,
+			limit
+		}]);
+	}
+	/**
+	* Drops the first N elements
+	*
+	* 跳过前 N 个元素
+	*
+	* @param count - The number of elements to drop. 要跳过的元素数量
+	* @returns A new ArrayIterator instance with the drop operation. 带有跳过操作的新 ArrayIterator 实例
+	*
+	* @throws {TypeError} When count is not a non-negative integer. 当 count 不是非负整数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3, 4, 5])
+	*   .drop(2)
+	*   .toArray()
+	* // => [3, 4, 5]
+	* ```
+	*/
+	drop(count) {
+		if (!isNumber(count) || !isInteger(count) || count < 0) throw new TypeError("count must be a non-negative integer");
+		return ArrayIterator.create(this.source, [...this.operations, {
+			type: OPERATION_DROP,
+			count
+		}]);
+	}
+	/**
+	* Executes a provided callback function once for each array element
+	*
+	* 对数组中的每个元素执行一次提供的回调函数
+	*
+	* @param callback - The function to execute for each element. 为每个元素执行的函数
+	*
+	* @throws {TypeError} When callback is not a function. 当 callback 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3])
+	*   .forEach((value, index) => console.log(value, index))
+	* ```
+	*/
+	forEach(callback) {
+		if (!isFunction(callback)) throw new TypeError("callback must be a function");
+		let index = 0;
+		for (const value of this.iterate()) callback(value, index++);
+	}
+	/**
+	* Tests whether all elements pass the test implemented by the provided function
+	*
+	* 测试所有元素是否都通过了由提供的函数实现的测试
+	*
+	* @param predicate - The function to test for each element. 用于测试每个元素的函数
+	* @returns true if all elements pass the test, false otherwise. 如果所有元素都通过测试则返回 true，否则返回 false
+	*
+	* @throws {TypeError} When predicate is not a function. 当 predicate 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([2, 4, 6]).every((v) => v % 2 === 0)
+	* // => true
+	* ```
+	*/
+	every(predicate) {
+		if (!isFunction(predicate)) throw new TypeError("predicate must be a function");
+		let index = 0;
+		for (const value of this.iterate()) if (!predicate(value, index++)) return false;
+		return true;
+	}
+	/**
+	* Tests whether at least one element passes the test implemented by the provided function
+	*
+	* 测试是否至少有一个元素通过了由提供的函数实现的测试
+	*
+	* @param predicate - The function to test for each element. 用于测试每个元素的函数
+	* @returns true if at least one element passes the test, false otherwise. 如果至少有一个元素通过测试则返回 true，否则返回 false
+	*
+	* @throws {TypeError} When predicate is not a function. 当 predicate 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3]).some((v) => v % 2 === 0)
+	* // => true
+	* ```
+	*/
+	some(predicate) {
+		if (!isFunction(predicate)) throw new TypeError("predicate must be a function");
+		let index = 0;
+		for (const value of this.iterate()) if (predicate(value, index++)) return true;
+		return false;
+	}
+	/**
+	* Returns the value of the first element that satisfies the provided testing function
+	*
+	* 返回满足提供的测试函数的第一个元素的值
+	*
+	* @param predicate - The function to test for each element. 用于测试每个元素的函数
+	* @returns The value of the first element that passes the test, or undefined if no element passes. 通过测试的第一个元素的值，如果没有元素通过则返回 undefined
+	*
+	* @throws {TypeError} When predicate is not a function. 当 predicate 不是函数时抛出。
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3, 4]).find((v) => v > 2)
+	* // => 3
+	* ```
+	*/
+	find(predicate) {
+		if (!isFunction(predicate)) throw new TypeError("predicate must be a function");
+		let index = 0;
+		for (const value of this.iterate()) if (predicate(value, index++)) return value;
+	}
+	/**
+	* Executes all chained operations and returns the final result array
+	*
+	* 执行所有链式操作并返回最终结果数组
+	*
+	* @returns An array of the processed elements. 处理后的元素数组
+	*
+	* @example
+	* ```ts
+	* new ArrayIterator([1, 2, 3]).toArray()
+	* // => [1, 2, 3]
+	* ```
+	*/
+	toArray() {
+		return [...this.iterate()];
+	}
+	/**
+	* Implements the iterable protocol, allowing ArrayIterator to be used
+	* in for...of loops, spread operator, and other iterable consumers
+	*
+	* 实现可迭代协议，允许 ArrayIterator 用于 for...of 循环、展开运算符及其他可迭代消费者
+	*
+	* @returns An iterator for the processed elements. 处理后元素的迭代器
+	*
+	* @example
+	* ```ts
+	* const iterator = new ArrayIterator([1, 2, 3])
+	* for (const value of iterator) {
+	*   console.log(value)
+	* }
+	* ```
+	*/
+	[Symbol.iterator]() {
+		return this.iterate();
+	}
+};
+//#endregion
+//#region src/array/chunk.ts
+/**
+* Split array into chunks
+*
+* 将数组拆分成块
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param input - The array to be chunked. 要分块的数组
+* @param size - The size of each chunk. Defaults to 1. Floats are truncated via `parseInt`. If the result is not a positive integer, defaults to 1. 每个块的大小，默认为1。浮点数通过 `parseInt` 取整。如果结果不是正整数，则默认为 1。
+* @returns A new array of chunks. 分块后的新数组
+*
+* @example
+* ```ts
+* chunk([1, 2, 3, 4, 5], 2) // => [[1, 2], [3, 4], [5]]
+* ```
+*/
+function chunk(input, size = 1) {
+	size = Number.parseInt(String(size), 10);
+	if (Number.isNaN(size) || size < 1) size = 1;
+	const chunks = [];
+	for (let i = 0; i < input.length; i += size) chunks.push(input.slice(i, i + size));
+	return chunks;
+}
+//#endregion
+//#region src/array/count.ts
+/**
+* Counts the number of elements in an array that satisfy the given predicate function.
+*
+* 统计数组中满足给定谓词函数的元素数量。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to count elements in. 要统计元素数量的数组
+* @param predicate - The function to test each element. 用于测试每个元素的函数
+* @returns The number of elements that satisfy the predicate. 满足谓词的元素数量
+*
+* @remarks
+* O(n) time complexity - single pass through the array
+*
+* O(n) 时间复杂度 - 单次遍历数组
+*
+* @example
+* ```ts
+* count([1, 2, 3, 4, 5], n => n > 2)
+* // => 3
+* ```
+*
+* @example
+* ```ts
+* count(['a', 'bb', 'ccc'], s => s.length > 1)
+* // => 2
+* ```
+*/
+function count(array, predicate) {
+	let result = 0;
+	for (let i = 0; i < array.length; i++) if (predicate(array[i], i, array)) result++;
+	return result;
+}
+/**
+* Counts the occurrences of each value returned by the iteratee function.
+*
+* This function takes an array and an iteratee function, and returns an object
+* where each key is a value returned by the iteratee function, and the value
+* is the count of elements that produced that key.
+*
+* 统计 iteratee 函数返回的每个值的出现次数。
+*
+* 此函数接收一个数组和一个 iteratee 函数，返回一个对象，其中每个键是 iteratee 函数返回的值，
+* 值是产生该键的元素数量。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam K - The type of the key (extends PropertyKey) / 键的类型（继承 PropertyKey）
+* @param array - The array to count. 要统计的数组
+* @param iteratee - The function to transform elements into keys. 将元素转换为键的函数
+* @returns An object with keys mapped to their counts. 键映射到其计数的对象
+*
+* @remarks
+* Uses plain object for key lookup, overall O(n) time complexity.
+* Key lookup is O(1) via {@link hasOwn}.
+*
+* 使用普通对象实现键查找，整体时间复杂度 O(n)。
+* 通过 {@link hasOwn} 实现 O(1) 键查找。
+*
+* @example
+* ```ts
+* countBy(['one', 'two', 'three'], x => x.length)
+* // => { 3: 2, 5: 1 }
+* ```
+*
+* @example
+* ```ts
+* countBy([6.1, 4.2, 6.3], Math.floor)
+* // => { 6: 2, 4: 1 }
+* ```
+*/
+function countBy(array, iteratee) {
+	const result = Object.create(null);
+	for (let i = 0; i < array.length; i++) {
+		const key = iteratee(array[i]);
+		if (hasOwn(result, key)) result[key]++;
+		else result[key] = 1;
+	}
+	return result;
+}
+//#endregion
+//#region src/array/difference.ts
+/**
+* Computes the difference between two arrays.
+*
+* This function takes two arrays and returns a new array containing the elements
+* that are present in the first array but not in the second array. It effectively
+* filters out any elements from the first array that also appear in the second array.
+*
+* 计算两个数组之间的差异。
+*
+* 此函数接收两个数组，并返回一个新数组，其中包含存在于第一个数组中但不在第二个数组中的元素。
+* 它有效地过滤掉第一个数组中同时出现在第二个数组中的任何元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam U - The type of the mapped key or second array elements / 映射键或第二个数组元素的类型
+* @param firstArr - The first array. 第一个数组
+* @param secondArr - The second array. 第二个数组
+* @returns A new array containing the elements that are present in the first array but not in the second array. 包含存在于第一个数组中但不在第二个数组中的元素的新数组
+*
+* @example
+* ```ts
+* difference([1, 2, 3, 4, 5], [2, 4])
+* // => [1, 3, 5]
+* ```
+*/
+function difference(firstArr, secondArr) {
+	const set = new Set(secondArr);
+	return firstArr.filter((item) => !set.has(item));
+}
+/**
+* Computes the difference between two arrays after mapping their elements through a provided function.
+*
+* This function takes two arrays and a mapper function. It returns a new array containing the elements
+* that are present in the first array but not in the second array, based on the identity calculated
+* by the mapper function.
+*
+* Essentially, it filters out any elements from the first array that, when
+* mapped, match an element in the mapped version of the second array.
+*
+* 计算两个数组在通过提供的函数映射其元素后的差异。
+*
+* 此函数接收两个数组和一个映射函数。它返回一个新数组，包含那些存在于第一个数组中但不在第二个数组中的元素，
+* 基于映射函数计算出的标识。
+*
+* 本质上，它会过滤掉第一个数组中那些在映射后与第二个数组映射版本中元素匹配的元素。
+*
+* @category Array
+*
+*
+* @param firstArr - The first array. 第一个数组
+* @param secondArr - The second array. 第二个数组
+* @param mapper - The mapper function to transform elements. 用于转换元素的映射函数
+* @returns A new array containing the elements that are present in the first array but not in the second array. 包含存在于第一个数组中但不在第二个数组中的元素的新数组
+*
+* @example
+* ```ts
+* const array1 = [{ id: 1 }, { id: 2 }, { id: 3 }]
+* const array2 = [{ id: 2 }, { id: 4 }]
+* const mapper = item => item.id
+* const result = differenceBy(array1, array2, mapper)
+* // -> [{ id: 1 }, { id: 3 }]
+* ```
+* @example
+* ```ts
+* const array1 = [{ id: 1 }, { id: 2 }, { id: 3 }]
+* const array2 = [2, 4]
+* const mapper = item => (typeof item === 'object' ? item.id : item)
+* const result = differenceBy(array1, array2, mapper)
+* // -> [{ id: 1 }, { id: 3 }]
+* ```
+*/
+function differenceBy(firstArr, secondArr, mapper) {
+	const set = new Set(secondArr.map((item) => mapper(item)));
+	return firstArr.filter((item) => !set.has(mapper(item)));
+}
+//#endregion
+//#region src/promise/controlled.ts
+/**
+* Return a Promise with `resolve` and `reject` methods
+*
+* 返回一个 Promise，带有 `resolve` 和 `reject` 方法
+*
+* @category Promise
+*
+* @typeParam T - The type of the resolved value / 解析值的类型
+* @returns A controlled promise. / 受控Promise
+*
+* @example
+* ```ts
+* const promise = createControlledPromise()
+*
+* await promise
+*
+* // in another context:
+* promise.resolve(data)
+* ```
+*/
+function createControlledPromise() {
+	let resolve, reject;
+	const promise = new Promise((_resolve, _reject) => {
+		resolve = _resolve;
+		reject = _reject;
+	});
+	promise.resolve = resolve;
+	promise.reject = reject;
+	return promise;
+}
+//#endregion
+//#region src/promise/semaphore.ts
+/**
+* A counting semaphore for async functions that manages available permits.
+* Semaphores are mainly used to limit the number of concurrent async tasks.
+*
+* Each `acquire` operation takes a permit or waits until one is available.
+* Each `release` operation adds a permit, potentially allowing a waiting task to proceed.
+*
+* The semaphore ensures fairness by maintaining a FIFO (First In, First Out) order for acquirers.
+*
+* 异步函数使用的计数信号量，管理可用许可。
+* 信号量主要用于限制并发异步任务的数量。
+*
+* 每次 `acquire` 操作都会获取一个许可，或者等待直到有一个许可可用。
+* 每次 `release` 操作都会增加一个许可，可能允许等待的任务继续执行。
+*
+* 信号量通过维护获取者的 FIFO（先进先出）顺序来确保公平性。
+*
+* @category Promise
+*
+* @example
+* ```ts
+* const sema = new Semaphore(2);
+*
+* async function task() {
+*   await sema.acquire();
+*   try {
+*     // This code can only be executed by two tasks at the same time
+*   } finally {
+*     sema.release();
+*   }
+* }
+*
+* task();
+* task();
+* task(); // This task will wait until one of the previous tasks releases the semaphore.
+* ```
+*/
+var Semaphore = class {
+	/**
+	* The maximum number of concurrent operations allowed.
+	*
+	* 允许的最大并发操作数。
+	*/
+	capacity;
+	/**
+	* The number of available permits.
+	*
+	* 可用许可的数量。
+	*/
+	_available;
+	_acquired = 0;
+	get available() {
+		return this._available;
+	}
+	_head = null;
+	_tail = null;
+	/**
+	* Creates an instance of Semaphore.
+	* @example
+	* ```ts
+	* const sema = new Semaphore(3); // Allows up to 3 concurrent operations.
+	* ```
+	*/
+	constructor(capacity) {
+		if (!isInteger(capacity) || capacity < 1) throw new RangeError("Semaphore capacity must be a positive integer");
+		this.capacity = capacity;
+		this._available = capacity;
+	}
+	/**
+	* Acquires a semaphore, blocking if necessary until one is available.
+	*
+	* 获取一个信号量，必要时阻塞直到有一个可用。
+	*
+	* @example
+	* ```ts
+	* const sema = new Semaphore(1);
+	*
+	* async function criticalSection() {
+	*   await sema.acquire();
+	*   try {
+	*     // This code section cannot be executed simultaneously
+	*   } finally {
+	*     sema.release();
+	*   }
+	* }
+	* ```
+	*/
+	async acquire() {
+		if (this._available > 0) {
+			this._available--;
+			this._acquired++;
+			return;
+		}
+		return new Promise((resolve) => {
+			const node = {
+				value: resolve,
+				next: null
+			};
+			if (this._tail) {
+				this._tail.next = node;
+				this._tail = node;
+			} else {
+				this._head = node;
+				this._tail = node;
+			}
+		});
+	}
+	/**
+	* Releases a semaphore, allowing one more operation to proceed.
+	*
+	* 释放一个信号量，允许另一个操作继续进行。
+	*
+	* @example
+	* ```ts
+	* const sema = new Semaphore(1);
+	*
+	* async function task() {
+	*   await sema.acquire();
+	*   try {
+	*     // This code can only be executed by two tasks at the same time
+	*   } finally {
+	*     sema.release(); // Allows another waiting task to proceed.
+	*   }
+	* }
+	* ```
+	*/
+	release() {
+		if (this._acquired > 0) this._acquired--;
+		else return;
+		if (this._head) {
+			const node = this._head;
+			this._head = node.next;
+			if (!this._head) this._tail = null;
+			this._acquired++;
+			node.value();
+			return;
+		}
+		this._available++;
+	}
+};
+//#endregion
+//#region src/promise/limit-async.ts
+/**
+* Wraps an async function to limit the number of concurrent executions.
+*
+* This function creates a wrapper around an async callback that ensures at most
+* `concurrency` number of executions can run simultaneously. Additional calls will
+* wait until a slot becomes available.
+*
+* 将异步函数包装起来以限制并发执行的数量。
+*
+* 此函数创建一个异步回调的包装器，确保最多只有`concurrency`个执行可以同时运行。
+* 额外的调用将等待直到有可用的执行槽位。
+*
+* @category Promise
+*
+* @typeParam F - The type of the function / 函数的类型
+* @param callback - The async function to wrap. / 要包装的异步函数
+* @param concurrency - The maximum number of concurrent executions. / 最大并发数
+* @returns The wrapped async function. / 包装后的异步函数
+*
+* @example
+* ```ts
+* const limitedFetch = limitAsync(async (url) => {
+*   return await fetch(url);
+* }, 3);
+*
+* // Only 3 fetches will run concurrently
+* const urls = ['url1', 'url2', 'url3', 'url4', 'url5'];
+* await Promise.all(urls.map(url => limitedFetch(url)));
+* ```
+*/
+function limitAsync(callback, concurrency) {
+	const semaphore = new Semaphore(concurrency);
+	return async function(...args) {
+		try {
+			await semaphore.acquire();
+			return await callback.apply(this, args);
+		} finally {
+			semaphore.release();
+		}
+	};
+}
+//#endregion
+//#region src/array/remove.ts
+/**
+* Remove value from array
+*
+* 从数组中移除值
+*
+* also see {@link removeBy}
+*
+* @category Array
+*
+* @param array - the array
+* @param value - the value to remove - 待移除的值
+* @returns
+* if `true`, the value is removed, `false` otherwise.
+*
+* 如果成功移除,返回 `true`, 否则返回 `false`
+*
+* @example
+* ```ts
+* const arr = [1, 2, 3]
+* remove(arr, 2) // => true
+* console.log(arr) // => [1, 3]
+* remove(arr, 4) // => false
+* ```
+* @remarks
+* This function mutates the original array in place. It uses `Array.prototype.splice` to remove the element.
+*
+* 此函数会直接修改原数组。它使用 `Array.prototype.splice` 移除元素。
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*/
+function remove(array, value) {
+	if (!isArray(array)) return false;
+	const index = array.findIndex((item) => Object.is(item, value));
+	if (index !== -1) {
+		array.splice(index, 1);
+		return true;
+	}
+	return false;
+}
+/**
+* Remove value by predicate function from array
+*
+* 通过 predicate 方法，从数组中移除值
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - the array / 数组
+* @param predicate - the predicate function / 谓词函数
+* @returns if `true`, the value is removed, `false` otherwise. / 如果成功移除,返回 `true`, 否则返回 `false`
+*
+* @remarks
+* This function mutates the original array in place. It uses `Array.prototype.splice` to remove the element.
+*
+* 此函数会直接修改原数组。它使用 `Array.prototype.splice` 移除元素。
+*
+* @see also {@link remove}
+*
+* @example
+* ```ts
+* const arr = [1, 2, 3]
+* removeBy(arr, n => n === 2) // => true
+* console.log(arr) // => [1, 3]
+* ```
+*
+* @example
+* ```ts
+* const arr = [
+*   { id: 1, csv: 1 },
+*   { id: 2, csv: 1 },
+*   { id: 3, csv: 1 },
+* ]
+* removeBy(arr, item => item.id === 2) // => true
+* console.log(arr) // => [{ id: 1, csv: 1 }, { id: 3, csv: 1 }]
+* ```
+*/
+function removeBy(array, predicate) {
+	if (!isArray(array)) return false;
+	const index = array.findIndex(predicate);
+	if (index !== -1) {
+		array.splice(index, 1);
+		return true;
+	}
+	return false;
+}
+//#endregion
+//#region src/promise/lock.ts
+/**
+* Create a promise task execution lock
+*
+* 创建一个 promise 任务执行锁
+*
+* @category Promise
+*
+* @example
+* ```
+* const lock = createPromiseLock()
+*
+* lock.run(async () => {
+*   await doSomething()
+* })
+*
+* // in another context:
+* await lock.wait() // it will wait all tasking finished
+* ```
+*/
+function createPromiseLock() {
+	const locks = [];
+	return {
+		async run(fn) {
+			const p = fn();
+			locks.push(p);
+			try {
+				return await p;
+			} finally {
+				remove(locks, p);
+			}
+		},
+		async wait() {
+			await Promise.allSettled(locks);
+		},
+		isWaiting() {
+			return Boolean(locks.length);
+		},
+		clear() {
+			locks.length = 0;
+		}
+	};
+}
+//#endregion
+//#region src/promise/parallel.ts
+/**
+* Executes an array of promises in parallel with a given concurrency. The function
+* returns a Promise that resolves with an array containing the resolved values of
+* each promise.
+* If any promise is rejected, the returned promise will be rejected.
+*
+* 以指定的并发数并行执行一组 promise。该函数返回一个 promise，该 promise 解析为一个数组，包含每个 promise 的解析值。
+* 任意一个 promise 拒绝，返回的 promise 将被拒绝。
+*
+* @category Promise
+*
+* @param promises - The array of promises or promise-returning functions to execute. 要执行的promise数组或返回promise的函数数组
+* @param concurrency - (optional) The maximum number of promises to execute in parallel. Defaults to infinity. 最大并发数，默认为无穷大
+* @returns A Promise that resolves with an array containing the resolved values of each promise. 一个Promise，它解析为一个包含每个promise解析值的数组
+* @example
+* ```ts
+* const promises = [Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]
+* const result = await promiseParallel(promises, 2) // maximum concurrency of 2 - 最大并发数为2
+* console.log(result) // [1, 2, 3]
+* ```
+*/
+function promiseParallel(promises, concurrency = Number.POSITIVE_INFINITY) {
+	promises = Array.from(promises);
+	if (concurrency <= 0 || concurrency !== Number.POSITIVE_INFINITY && !Number.isInteger(concurrency)) throw new RangeError("concurrency must be a positive integer");
+	if (promises.length === 0) return Promise.resolve([]);
+	let settled = false;
+	let current = 0;
+	const result = [];
+	let resolvedCount = 0;
+	const len = promises.length;
+	return new Promise((resolve, reject) => {
+		function next() {
+			const index = current++;
+			const promise = promises[index];
+			Promise.resolve(isFunction(promise) ? promise() : promise).then((res) => {
+				if (settled) return;
+				result[index] = res;
+				if (++resolvedCount === len) resolve(result);
+				if (current < len) next();
+			}).catch((reason) => {
+				settled = true;
+				reject(reason);
+			});
+		}
+		for (let i = 0; i < concurrency && i < len; i++) next();
+	});
+}
+/**
+* Creates a promise that is resolved with an array of promise settlement results,
+* in the same order as the input promises array.
+* The returned promise will be fulfilled when all of the input promises have settled,
+* either fulfilled or rejected.
+*
+* 创建一个以输入 promise 数组的结果数组解决的 promise，
+* 按照输入 promise 数组的相同顺序。
+* 当所有输入 promise 都已解决时，返回的 promise将被实现，
+* 要么实现，要么拒绝。
+*
+* @category Promise
+*
+* @param promises - The array of promises or promise-returning functions to execute. / 要执行的promise数组或返回promise的函数数组
+* @param concurrency - (optional) The maximum number of promises to execute in parallel. Defaults to infinity. / 最大并发数，默认为无穷大
+* @returns A Promise that resolves with an array of promise settlement results. / 一个Promise，它解析为一个包含每个promise解析状态和值的数组
+*
+* @example
+* ```ts
+* const promises = [Promise.resolve(1), Promise.resolve(2), Promise.reject('error')]
+* const result = await promiseParallelSettled(promises, 2) // maximum concurrency of 2 - 最大并发数为2
+* console.log(result) // [{ status: 'fulfilled', value: 1 }, { status: 'fulfilled', value: 2 }, { status: 'rejected', reason: 'error' }]
+* ```
+*/
+function promiseParallelSettled(promises, concurrency = Number.POSITIVE_INFINITY) {
+	promises = Array.from(promises);
+	if (concurrency <= 0 || concurrency !== Number.POSITIVE_INFINITY && !isInteger(concurrency)) throw new RangeError("concurrency must be a positive integer");
+	if (promises.length === 0) return Promise.resolve([]);
+	let current = 0;
+	const result = [];
+	let resolvedCount = 0;
+	const len = promises.length;
+	return new Promise((resolve) => {
+		function resolved() {
+			if (++resolvedCount === len) resolve(result);
+			if (current < len) next();
+		}
+		function next() {
+			const index = current++;
+			const promise = promises[index];
+			Promise.resolve(isFunction(promise) ? promise() : promise).then((value) => {
+				result[index] = {
+					status: "fulfilled",
+					value
+				};
+				resolved();
+			}).catch((reason) => {
+				result[index] = {
+					status: "rejected",
+					reason
+				};
+				resolved();
+			});
+		}
+		for (let i = 0; i < concurrency && i < len; i++) next();
+	});
+}
+//#endregion
+//#region src/date/is-same-day.ts
+/**
+* Check if two dates are on the same day (ignores time components).
+*
+* 检查两个日期是否在同一天（忽略时间部分）。
+*
+* @category Date
+*
+* @param date1 - The first date to compare. 第一个要比较的日期
+* @param date2 - The second date to compare. 第二个要比较的日期
+*
+* @returns True if both dates are on the same day, false otherwise. 如果两个日期在同一天则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isSameDay(new Date('2024-01-15'), new Date('2024-01-15T12:00:00')) // => true
+* isSameDay(new Date('2024-01-15'), new Date('2024-01-16')) // => false
+* isSameDay(new Date('2024-01-15'), '2024-01-15') // => true
+* ```
+*/
+function isSameDay(date1, date2) {
+	if (isNil(date2)) return false;
+	const s1 = toDateString(date1);
+	return !isNull(s1) && s1 === toDateString(date2);
+}
+function toDateString(value) {
+	const date = isDate(value) ? value : new Date(value);
+	if (Number.isNaN(date.getTime())) return null;
+	return `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
+}
+//#endregion
+//#region src/date/timestamp.ts
+/**
+* Get the current timestamp in milliseconds since the Unix epoch.
+*
+* 获取自 Unix 纪元以来的当前时间戳（毫秒）。
+*
+* @category Date
+*
+* @returns The current timestamp in milliseconds. 当前时间戳（毫秒）
+*
+* @example
+* ```ts
+* const ts = timestamp() // => 1700000000000 (example)
+* ```
+*
+* @example
+* Measuring elapsed time:
+* ```ts
+* const start = timestamp()
+* // ... some operation
+* const elapsed = timestamp() - start
+* ```
+*/
+function timestamp() {
+	return Date.now();
+}
+//#endregion
+//#region src/error/AbortError.ts
+/**
+* An error class representing an aborted operation.
+*
+* 表示操作被中止的错误类。
+*
+* @category Error
+*
+* @param message - The error message. 错误消息
+* @param options - The error options. 错误选项
+*
+* @example
+* ```ts
+* new AbortError()
+* // => AbortError: The operation was aborted
+* ```
+*
+* @augments Error
+*/
+var AbortError = class extends Error {
+	constructor(message = "The operation was aborted", options) {
+		super(message, options);
+		this.name = "AbortError";
+	}
+};
+//#endregion
+//#region src/error/TimeoutError.ts
+/**
+* An error class representing a timeout operation.
+*
+* 表示操作超时的错误类。
+*
+* @category Error
+*
+* @param message - The error message. 错误消息
+* @param options - The error options. 错误选项
+*
+* @example
+* ```ts
+* new TimeoutError()
+* // => TimeoutError: The operation was timed out
+* ```
+*
+* @augments Error
+*/
+var TimeoutError = class extends Error {
+	constructor(message = "The operation was timed out", options) {
+		super(message, options);
+		this.name = "TimeoutError";
+	}
+};
+//#endregion
+//#region src/error/RetryError.ts
+/**
+* An error class representing a failed retry operation.
+*
+* 表示重试操作失败的错误类。
+*
+* @category Error
+*
+* @param attempts - The number of attempts. 尝试次数
+* @param message - The error message. 错误消息
+*
+* @remarks
+* The constructor clamps the `attempts` parameter to a non-negative integer using `Math.max(0, Math.trunc(attempts))`. Negative values are silently converted to 0, and fractional values are truncated.
+*
+* 构造函数会通过 `Math.max(0, Math.trunc(attempts))` 将 `attempts` 参数钳位为非负整数。负值会被静默转换为 0，小数值会被截断。
+*
+* @example
+* ```ts
+* new RetryError(3)
+* // => RetryError: The retry operation failed
+* ```
+*
+* @augments Error
+*/
+var RetryError = class extends Error {
+	attempts;
+	constructor(attempts, message = "The retry operation failed", options) {
+		super(message, options);
+		this.name = "RetryError";
+		this.attempts = Math.max(0, Math.trunc(attempts));
+	}
+};
+//#endregion
+//#region src/promise/retry.ts
+/**
+* Retry a async function with a delay
+*
+* 重试异步函数并设置延迟
+*
+* @category Promise
+*
+* @typeParam T - The type of the resolved value / 解析值的类型
+* @param fn - the function to retry / 重试的异步函数
+* @param options - the options for retry / 重试选项
+* @param options.limit
+* @param options.delay
+* @param options.signal - AbortSignal for cancellation (optional) / 用于取消的 AbortSignal（可选）
+* @param options.timeout - Maximum total time in milliseconds (optional) / 最大总时间（毫秒，可选）
+*
+* @example
+* ```ts
+* const result = await retry(async () => {
+*   return await fetch('https://example.com').then((res) => res.json())
+* }, { limit: 3, delay: 1000 })
+* ```
+*
+* @example
+* With cancellation / 带取消功能
+* ```ts
+* const controller = new AbortController()
+* const promise = retry(fetchData, { signal: controller.signal })
+*
+* // Cancel the retry / 取消重试
+* controller.abort()
+* ```
+*
+* @example
+* With timeout / 带超时限制
+* ```ts
+* try {
+*   const result = await retry(fetchData, { limit: 5, timeout: 10000 })
+* } catch (error) {
+*   if (error instanceof TimeoutError) {
+*     console.log('Retry timed out after 10 seconds')
+*   }
+* }
+* ```
+*/
+function retry(fn, { limit = 3, delay = 0, signal, timeout } = {}) {
+	if (limit < 1) throw new RangeError("limit must be at least 1");
+	if (delay < 0) throw new RangeError("delay must be non-negative");
+	if (timeout !== void 0 && timeout <= 0) throw new RangeError("timeout must be positive");
+	let cancelled = false;
+	let settled = false;
+	let timer;
+	let timeoutTimer;
+	let rejectFn;
+	let timeoutController;
+	const cleanup = () => {
+		if (settled) return;
+		if (timer) {
+			clearTimeout(timer);
+			timer = void 0;
+		}
+		if (timeoutTimer) {
+			clearTimeout(timeoutTimer);
+			timeoutTimer = void 0;
+		}
+		timeoutController?.abort();
+		signal?.removeEventListener("abort", cleanup);
+		if (!cancelled) {
+			cancelled = true;
+			settled = true;
+			rejectFn(new DOMException("Aborted", "AbortError"));
+		}
+	};
+	if (signal) {
+		if (signal.aborted) return Object.assign(Promise.reject(new DOMException("Aborted", "AbortError")), { cancel: () => {} });
+		signal.addEventListener("abort", cleanup, { once: true });
+	}
+	const startTime = Date.now();
+	const promise = new Promise((resolve, reject) => {
+		rejectFn = reject;
+		let attempts = 0;
+		const retry = () => {
+			/* istanbul ignore if -- @preserve */
+			if (cancelled) return;
+			if (timeout && timestamp() - startTime > timeout) {
+				settled = true;
+				signal?.removeEventListener("abort", cleanup);
+				reject(new TimeoutError());
+				return;
+			}
+			timeoutController = new AbortController();
+			const combinedSignal = signal ? AbortSignal.any([signal, timeoutController.signal]) : timeoutController.signal;
+			if (timeout) {
+				const remaining = timeout - (timestamp() - startTime);
+				if (remaining <= 0) {
+					settled = true;
+					signal?.removeEventListener("abort", cleanup);
+					reject(new TimeoutError());
+					return;
+				}
+				timeoutTimer = setTimeout(() => {
+					timeoutController?.abort();
+					settled = true;
+					signal?.removeEventListener("abort", cleanup);
+					rejectFn(new TimeoutError());
+				}, remaining);
+			}
+			const handleSuccess = (value) => {
+				if (settled) return;
+				settled = true;
+				if (timeoutTimer) {
+					clearTimeout(timeoutTimer);
+					timeoutTimer = void 0;
+				}
+				timeoutController = void 0;
+				signal?.removeEventListener("abort", cleanup);
+				resolve(value);
+			};
+			const handleError = (error) => {
+				if (settled) return;
+				if (timeoutTimer) {
+					clearTimeout(timeoutTimer);
+					timeoutTimer = void 0;
+				}
+				timeoutController = void 0;
+				attempts++;
+				if (attempts < limit && !cancelled) timer = setTimeout(retry, delay);
+				else {
+					settled = true;
+					signal?.removeEventListener("abort", cleanup);
+					reject(new RetryError(attempts, isError(error) ? error.message : String(error), { cause: error }));
+				}
+			};
+			try {
+				fn(combinedSignal).then(handleSuccess, handleError);
+			} catch (syncError) {
+				handleError(syncError);
+			}
+		};
+		retry();
+	});
+	return Object.assign(promise, { cancel: cleanup });
+}
+//#endregion
+//#region src/promise/singleton.ts
+/**
+* Wrap a promise as a singleton, returning the same promise on multiple calls.
+*
+* Through the `singleton.reset()` method, you can reset the currently expired promise and wait for it to close normally.
+*
+* 将一个 promise 包装为单例，在多次调用时，返回同一个 promise
+*
+* 通过 `singleton.reset` 方法可以重置当前过期的 promise，并等待其正常关闭
+*
+* @category Promise
+*
+* @typeParam T - The type of the resolved value / 解析值的类型
+* @param fn - the function that returns the promise to wrap / 要包装的 promise 返回函数
+* @returns a function that returns the wrapped promise / 返回包装后的 promise
+*
+* @example
+* ```ts
+* let i = 1
+* const singleton = createSingletonPromise(() => Promise.resolve(i++))
+*
+* const p1 = singleton() // fn only called once, i++ → 1
+* const p2 = singleton() // same promise returned, fn not called again
+* console.log(p1 === p2) // true
+*
+* await p1 // => 1
+* await p2 // => 1 (same cached result)
+* ```
+*
+* @example
+* ```ts
+* let i = 1
+* const singleton = createSingletonPromise(() => Promise.resolve(i++))
+*
+* await singleton() // => 1
+* await singleton.reset() // clear cached promise, wait for pending if any
+* await singleton() // => 2 (fn called again, i++ → 2)
+* ```
+*/
+function createSingletonPromise(fn) {
+	let _promise;
+	let _resetting;
+	function wrapper() {
+		if (_resetting) {
+			const resettingPromise = _resetting;
+			_resetting = void 0;
+			_promise = resettingPromise.then(() => fn());
+			return _promise;
+		}
+		if (!_promise) _promise = fn();
+		return _promise;
+	}
+	wrapper.reset = async () => {
+		const _prev = _promise;
+		_promise = void 0;
+		if (_prev) {
+			_resetting = _prev.catch(() => {});
+			await _resetting;
+			_resetting = void 0;
+		}
+	};
+	return wrapper;
+}
+//#endregion
+//#region src/promise/sleep.ts
+/**
+* Sleeps for the given number of milliseconds.
+*
+* 给定毫秒数睡眠。
+*
+* @category Promise
+*
+* @param ms - The number of milliseconds to sleep. / 睡眠的毫秒数
+* @param options - The options for the sleep. / 睡眠的配置项
+* @param options.signal - The signal to abort the sleep. / 睡眠的中止信号
+* @returns A promise that resolves after the specified delay. / 在指定延迟后解析的Promise
+*
+* @throws {DOMException} If the sleep is aborted via the signal. / 如果通过信号中止睡眠
+*
+* @see {@link timeout} — for rejecting after a delay
+* @see {@link timeout} — 在延迟后拒绝
+*
+* @example
+* ```ts
+* console.log('Start');
+* await sleep(1000); // Delays execution for 1 second
+* console.log('End');
+* ```
+*
+* @example
+* ```ts
+* const controller = new AbortController();
+* const { signal } = controller;
+*
+* setTimeout(() => controller.abort(), 50); // Will cancel the delay after 50ms
+* try {
+*   await sleep(100, { signal });
+* } catch (error) {
+*   console.error(error); // Will log 'AbortError'
+* }
+* ```
+*/
+function sleep(ms, { signal } = {}) {
+	if (!Number.isFinite(ms) || ms < 0) throw new RangeError("ms must be a finite non-negative number");
+	return new Promise((resolve, reject) => {
+		let timeoutId;
+		const abortError = () => {
+			reject(new DOMException("Aborted", "AbortError"));
+		};
+		const abortHandler = () => {
+			clearTimeout(timeoutId);
+			abortError();
+		};
+		if (signal?.aborted) return abortError();
+		timeoutId = setTimeout(() => {
+			signal?.removeEventListener("abort", abortHandler);
+			resolve();
+		}, ms);
+		signal?.addEventListener("abort", abortHandler, { once: true });
+	});
+}
+/**
+* Alias for `sleep`, Delays for the given number of milliseconds.
+*
+* `sleep` 的别名, 给定毫秒数延迟。
+*
+* also see {@link sleep}
+*
+* @category Promise
+*/
+const delay = sleep;
+//#endregion
+//#region src/promise/timeout.ts
+/**
+* Returns a promise that rejects with a `TimeoutError` after a specified delay.
+*
+* 返回一个 promise，该 promise 在指定的延迟时间后拒绝，抛出一个 `TimeoutError`。
+*
+* @category Promise
+*
+* @param ms - the number of milliseconds to wait before rejecting the promise. / 超时的毫秒数
+* @returns A promise that rejects with a `TimeoutError` after the specified delay. / 一个 promise，它将在指定的延迟时间后拒绝，抛出一个 `TimeoutError`。
+*
+* @throws {TimeoutError} Throws a TimeoutError after the specified delay. / 在指定的延迟时间后抛出 TimeoutError。
+*
+* @example
+* ```ts
+* try {
+*   await timeout(1000); // Timeout exception after 1 second
+* } catch (error) {
+*   console.error(error); // Will log 'The operation was timed out'
+* }
+* ```
+*/
+async function timeout(ms) {
+	await sleep(ms);
+	throw new TimeoutError();
+}
+function withTimeout(run, ms, options = {}) {
+	if (!Number.isFinite(ms) || ms < 0) throw new RangeError("ms must be a finite non-negative number");
+	const { message, signal: externalSignal } = options;
+	const controller = new AbortController();
+	let settled = false;
+	let timer;
+	let abortHandler;
+	let _reject;
+	let _resolve;
+	const runSignal = externalSignal ? AbortSignal.any([externalSignal, controller.signal]) : controller.signal;
+	const cleanup = () => {
+		if (timer) {
+			clearTimeout(timer);
+			timer = void 0;
+		}
+		if (abortHandler) {
+			externalSignal?.removeEventListener("abort", abortHandler);
+			abortHandler = void 0;
+		}
+	};
+	const finish = (type, value) => {
+		if (settled) return;
+		settled = true;
+		cleanup();
+		if (type === "success") return _resolve(value);
+		if (type === "timeout") {
+			if (isKeyof(options, "fallback") && !isUndefined(options.fallback)) return _resolve(options.fallback);
+			return _reject(new TimeoutError(message));
+		}
+		if (type === "abort") return _reject(new DOMException("Aborted", "AbortError"));
+		_reject(value);
+	};
+	const promise = new Promise((resolve, reject) => {
+		_resolve = resolve;
+		_reject = reject;
+		if (runSignal.aborted) return finish("abort");
+		if (externalSignal) {
+			abortHandler = () => finish("abort");
+			externalSignal.addEventListener("abort", abortHandler, { once: true });
+		}
+		timer = setTimeout(() => {
+			controller.abort();
+			finish("timeout");
+		}, ms);
+		run(runSignal).then((result) => finish("success", result), (e) => finish("error", e));
+	});
+	promise.cancel = () => {
+		if (settled) return;
+		controller.abort();
+		finish("abort");
+	};
+	return promise;
+}
+//#endregion
+//#region src/array/filter-async.ts
+/**
+* Filters an array asynchronously using an async predicate function.
+*
+* Returns a promise that resolves to a new array containing only the elements
+* for which the predicate function returns a truthy value.
+*
+* 使用异步谓词函数对数组进行异步过滤。
+*
+* 返回一个Promise，该Promise解析为一个新数组，仅包含谓词函数返回真值的元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to filter. 要过滤的数组
+* @param predicate - An async predicate function to test each element. 用于测试每个元素的异步谓词函数
+* @param concurrency - The maximum number of concurrent operations. 最大并发操作数
+* @returns A promise that resolves to the filtered array. 解析为过滤后数组的Promise
+*
+* @remarks
+* Predicates are executed concurrently via `promiseParallel` under the hood.
+* The results maintain the original array order regardless of the order in which predicates resolve.
+* The `concurrency` parameter controls the maximum number of simultaneously pending operations.
+*
+* 谓词函数通过底层的`promiseParallel`并发执行。
+* 无论谓词函数解析的顺序如何，结果都保持原始数组的顺序。
+* `concurrency`参数控制同时进行中的最大操作数。
+*
+* @see {@link mapAsync} — for async transformation / 异步转换
+*
+* @example
+* ```ts
+* const users = [{ id: 1, active: true }, { id: 2, active: false }, { id: 3, active: true }];
+* const activeUsers = await filterAsync(users, async (user) => {
+*   return await checkUserStatus(user.id);
+* });
+* // Returns: [{ id: 1, active: true }, { id: 3, active: true }]
+* ```
+*/
+async function filterAsync(array, predicate, concurrency) {
+	const result = await promiseParallel(array.map((...args) => () => predicate(...args)), concurrency);
+	return array.filter((_, index) => result[index]);
+}
+//#endregion
+//#region src/array/find-then.ts
+/**
+* Find the first element in the array that satisfies the provided testing function and execute the given callback function.
+*
+* 查找数组中第一个满足提供的测试函数的元素，并执行给定的回调函数。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array The array to search in / 要搜索的数组
+* @param predicate A function to test each element. Return true to indicate a matching element has been found. / 用于测试每个元素的函数。返回 true 表示已找到匹配元素。
+* @param then A function to execute on the found element. / 找到匹配元素后要执行的函数。
+* @param start The index at which to start the search. Defaults to 0 (beginning of the array). / 开始搜索的索引。默认为 0（数组开头）。
+* @returns Whether any element satisfies the testing function. / 是否有任何元素满足测试函数。
+*
+* @example
+* ```ts
+* const arr = [1, 2, 3, 4, 5]
+* findFirstThen(arr, (v) => v > 3, (v) => console.log(v)) // 4
+* ```
+*/
+function findFirstThen(array, predicate, then, start = 0) {
+	return _findThen(array, predicate, then, start);
+}
+/**
+* Find the last element in the array that satisfies the provided testing function and execute the given callback function.
+*
+* 查找数组中最后一个满足提供的测试函数的元素，并执行给定的回调函数。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array The array to search in / 要搜索的数组
+* @param predicate A function to test each element. Return true to indicate a matching element has been found. / 用于测试每个元素的函数。返回 true 表示已找到匹配元素。
+* @param then A function to execute on the found element. / 找到匹配元素后要执行的函数。
+* @param start The index at which to start the search. Defaults to the last index of the array. / 开始搜索的索引。默认值为 array.length - 1。
+* @returns Whether any element satisfies the testing function. / 是否有任何元素满足测试函数。
+*
+* @example
+* ```ts
+* const arr = [1, 2, 3, 4, 5]
+* findLastThen(arr, (v) => v > 3, (v) => console.log(v)) // 5
+* ```
+*/
+function findLastThen(array, predicate, then, start = array.length - 1) {
+	return _findThen(array, predicate, then, start, true);
+}
+function _findThen(array, predicate, then, start = 0, lastIndex = false) {
+	if (Number.isNaN(start)) throw new TypeError("start must be a valid number");
+	const end = lastIndex ? -1 : array.length;
+	const step = lastIndex ? -1 : 1;
+	start = Math.max(lastIndex ? -1 : 0, Math.min(start, array.length - 1));
+	for (let i = start; lastIndex ? i > end : i < end; i += step) if (predicate(array[i], i, array)) {
+		then(array[i], i, array);
+		return true;
+	}
+	return false;
+}
+//#endregion
+//#region src/array/group-by.ts
+/**
+* Groups the elements of an array based on the given function.
+*
+* This function takes an array and a grouping function, and returns an object
+* where each key is a value returned by the grouping function, and the value
+* is an array of elements that produced that key.
+*
+* 根据给定函数对数组元素进行分组。
+*
+* 此函数接收一个数组和一个分组函数，返回一个对象，其中每个键是由分组函数返回的值，
+* 值是产生该键的元素数组。
+*
+* @category Array
+*
+* @typeParam K - The type of the key (extends PropertyKey) / 键的类型（继承 PropertyKey）
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to group. 要分组的数组
+* @param iteratee - The function to transform elements into group keys. 将元素转换为分组键的函数
+* @returns An object with grouped elements. 分组后的对象
+*
+* @remarks
+* Uses plain object for key lookup, overall O(n) time complexity.
+* Key lookup is O(1) via {@link hasOwn}.
+*
+* 使用普通对象实现键查找，整体时间复杂度 O(n)。
+* 通过 {@link hasOwn} 实现 O(1) 键查找。
+*
+* @example
+* ```ts
+* groupBy([{ type: 'a', val: 1 }, { type: 'b', val: 2 }, { type: 'a', val: 3 }], x => x.type)
+* // => { a: [{ type: 'a', val: 1 }, { type: 'a', val: 3 }], b: [{ type: 'b', val: 2 }] }
+* ```
+*
+* @example
+* ```ts
+* groupBy([6.1, 4.2, 6.3], Math.floor)
+* // => { 6: [6.1, 6.3], 4: [4.2] }
+* ```
+*
+* @example
+* ```ts
+* groupBy(['one', 'two', 'three'], x => x.length)
+* // => { 3: ['one', 'two'], 5: ['three'] }
+* ```
+*/
+function groupBy(array, iteratee) {
+	const result = Object.create(null);
+	for (let i = 0; i < array.length; i++) {
+		const item = array[i];
+		const key = iteratee(item);
+		if (hasOwn(result, key)) result[key].push(item);
+		else result[key] = [item];
+	}
+	return result;
+}
+//#endregion
+//#region src/array/intersection.ts
+/**
+* Computes the intersection between two arrays.
+*
+* This function takes two arrays and returns a new array containing elements that exist in both the first and second arrays.
+* It effectively filters out any elements that do not appear in both arrays.
+* Unlike lodash, this function preserves duplicate elements from the first array.
+*
+* 计算两个数组之间的交集。
+*
+* 此函数接收两个数组，并返回一个新数组，其中包含同时存在于第一个数组和第二个数组中的元素。
+* 它有效地过滤掉不在两个数组中同时出现的任何元素。
+* 与 lodash 不同，此函数保留第一个数组中的重复元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam U - The type of the mapped key or second array elements / 映射键或第二个数组元素的类型
+* @param firstArr - the first array. 第一个数组
+* @param secondArr - the second array. 第二个数组
+* @returns a new array containing elements that exist in both the first and second arrays. -- 包含同时存在于第一个数组和第二个数组中的元素的新数组
+*
+* @example
+* ```ts
+* intersection([1, 2, 3, 4, 5], [2, 4, 6])
+* // => [2, 4]
+* ```
+*/
+function intersection(firstArr, secondArr) {
+	const secondSet = new Set(secondArr);
+	return firstArr.filter((item) => secondSet.has(item));
+}
+/**
+* Computes the intersection between two arrays after mapping their elements through a provided function.
+*
+* This function takes two arrays and a mapper function. It returns a new array containing elements that exist in both the first and second arrays.
+* It effectively filters out any elements that do not appear in both arrays.
+*
+* Essentially, it only retains those elements from the first array that, after mapping, match elements in the mapped version of the second array.
+* Unlike lodash, this function preserves duplicate elements from the first array.
+*
+* 计算两个数组在通过提供的函数映射其元素后的交集。
+*
+* 此函数接收两个数组和一个映射函数。它返回一个新数组，其中包含同时存在于第一个数组和第二个数组中的元素。
+* 它有效地过滤掉不在两个数组中同时出现的任何元素。
+*
+* 本质上，它仅保留过第一个数组中那些在映射后与第二个数组映射版本中元素匹配的元素。
+* 与 lodash 不同，此函数保留第一个数组中的重复元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam U - The type of the mapped key or second array elements / 映射键或第二个数组元素的类型
+* @param firstArr - the first array. 第一个数组
+* @param secondArr - the second array. 第二个数组
+* @param mapper - the mapper function. 映射函数
+* @returns a new array containing elements that exist in both the first and second arrays. -- 包含同时存在于第一个数组和第二个数组中的元素的新数组
+*
+* @example
+* ```ts
+* const array1 = [{ id: 1 }, { id: 2 }, { id: 3 }]
+* const array2 = [{ id: 2 }, { id: 4 }]
+* const mapper = item => item.id
+* const result = intersectionBy(array1, array2, mapper)
+* // -> [{ id: 2 }]
+* ```
+*
+* @example
+* ```ts
+* const array1 = [{ id: 1 }, { id: 2 }, { id: 3 }]
+* const array2 = [2, 4]
+* const mapper = item => (typeof item === 'object' ? item.id : item)
+* const result = intersectionBy(array1, array2, mapper)
+* // -> [{ id: 2 }]
+* ```
+*/
+function intersectionBy(firstArr, secondArr, mapper) {
+	const secondSet = new Set(secondArr.map((item) => mapper(item)));
+	return firstArr.filter((item) => secondSet.has(mapper(item)));
+}
+//#endregion
+//#region src/array/key-by.ts
+/**
+* Creates an object composed of keys generated from the results of running
+* each element of an array through the given function.
+*
+* The opposite of `groupBy`, this function creates an object where each key
+* is the result of the iteratee function, and the value is the last element
+* that produced that key.
+*
+* 创建一个对象，键由数组的每个元素经过给定函数运行后的结果生成。
+*
+* 与 `groupBy` 相反，此函数创建一个对象，其中每个键是 iteratee 函数的结果，
+* 值是产生该键的最后一个元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam K - The type of the key (extends PropertyKey) / 键的类型（继承 PropertyKey）
+* @param array - The array to convert. 要转换的数组
+* @param iteratee - The function to transform elements into keys. 将元素转换为键的函数
+* @returns An object with keys mapped to the last element that produced each key. 键映射到产生该键的最后一个元素的对象
+*
+* @example
+* ```ts
+* keyBy([{ id: 1, name: 'a' }, { id: 2, name: 'b' }], x => x.id)
+* // => { 1: { id: 1, name: 'a' }, 2: { id: 2, name: 'b' } }
+* ```
+*
+* @example
+* ```ts
+* keyBy(['one', 'two', 'three'], x => x.length)
+* // => { 3: 'two', 5: 'three' }
+* ```
+*/
+function keyBy(array, iteratee) {
+	const result = Object.create(null);
+	for (let i = 0; i < array.length; i++) {
+		const item = array[i];
+		const key = iteratee(item);
+		result[key] = item;
+	}
+	return result;
+}
+//#endregion
+//#region src/array/map-async.ts
+/**
+* Transforms each element in an array using an async callback function and returns
+* a promise that resolves to an array of transformed values.
+*
+* 使用异步回调函数转换数组中的每个元素，并返回一个解析为转换后值数组的 promise。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam R - The type of the transformed result / 转换结果的类型
+* @param array - The array to transform / 要转换的数组
+* @param transform - The async callback function to apply to each element / 对每个元素应用的异步回调函数
+* @param concurrency - The maximum number of concurrent operations to allow / 允许的最大并发操作数
+* @returns A promise that resolves to an array of transformed values / 解析为转换后值数组的 promise
+*
+* @remarks
+* Transform functions are executed concurrently via {@link promiseParallel} under the hood.
+* The results maintain the original array order regardless of the order in which transforms resolve.
+* The `concurrency` parameter controls the maximum number of simultaneously pending operations.
+*
+* 转换函数通过底层的 {@link promiseParallel}并发执行。
+* 无论转换函数的解析顺序如何，结果都保持原始数组的顺序。
+* `concurrency`参数控制同时进行中的最大操作数。
+*
+* @see {@link filterAsync} — for async filtering / 异步过滤
+*
+* @example
+* ```ts
+* const users = [{ id: 1 }, { id: 2 }, { id: 3 }];
+* const userDetails = await mapAsync(users, async (user) => {
+*   return await fetchUserDetails(user.id);
+* });
+* // Returns: [{ id: 1, name: '...' }, { id: 2, name: '...' }, { id: 3, name: '...' }]
+* ```
+*
+* @example
+* ```ts
+* // With concurrency limit
+* const numbers = [1, 2, 3, 4, 5];
+* const results = await mapAsync(
+*   numbers,
+*   async (n) => await slowOperation(n),
+*   2
+* );
+* // Processes at most 2 operations concurrently
+* ```
+*/
+async function mapAsync(array, transform, concurrency) {
+	return await promiseParallel(array.map((...args) => () => transform(...args)), concurrency);
+}
+//#endregion
+//#region src/array/move.ts
+/**
+* Move item in an array, change the original array.
+*
+* 移动数组中的项，此方法会改变原数组。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param arr - the array / 数组
+* @param from - the index of the item to move. 要移动的项的索引
+* @param to - the index to move to. 要移动到的索引
+* @returns the array with the item moved. 返回移动后的数组
+*
+* @remarks
+* This function mutates the original array in place using `Array.prototype.splice`. It does not create a copy.
+*
+* 此函数会通过 `Array.prototype.splice` 直接修改原数组，不会创建副本。
+*
+* @example
+* ```ts
+* move([1, 2, 3], 0, 2) // => [3, 1, 2]
+* ```
+*/
+function move(arr, from, to) {
+	if (!isArray(arr) || arr.length === 0) return arr;
+	if (!isInteger(from) || !isInteger(to)) throw new TypeError("from and to must be integers");
+	const len = arr.length;
+	from = from < 0 ? Math.max(from + len, 0) : from;
+	to = to < 0 ? Math.max(to + len, 0) : to;
+	if (from >= len) from = len - 1;
+	if (to > len) to = len;
+	if (from === to) return arr;
+	arr.splice(to, 0, arr.splice(from, 1)[0]);
+	return arr;
+}
+//#endregion
+//#region src/array/to-array.ts
+/**
+* Convert `Arrayable<T>` to `Array<T>`
+*
+* 将 `Arrayable<T>` 转换为 `Array<T>`
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param v - The value to convert to array / 要转换为数组的值
+* @returns The array / 数组
+*
+* @example
+* ```ts
+* toArray(null) // => []
+* toArray(undefined) // => []
+* toArray([]) // => []
+* toArray(1) // => [1]
+* toArray([1]) // => [1]
+* ```
+*/
+function toArray(v) {
+	if (isNil(v)) return [];
+	if (isArray(v)) return v;
+	return [v];
+}
+//#endregion
+//#region src/array/order-by.ts
+/**
+* Sorts an array of (objects | strings | numbers) based on the given `accords` and their corresponding order directions.
+*
+* - If you provide keys, it sorts the objects by the values of those keys.
+* - If you provide functions, it sorts based on the values returned by those functions.
+*
+* The function returns the array of (objects | strings | numbers) sorted in corresponding order directions.
+* If two objects have the same value for the current accordion, it uses the next accordion to determine their order.
+* If the number of orders is less than the number of accord, it uses the last order for the rest of the accord.
+*
+* 根据给定的`accords`及其对应的排序方向对 (对象 | 字符串 | 数字) 数组进行排序。
+*
+* - 如果提供键名，则按这些键对应的值对对象进行排序。
+* - 如果提供函数，则根据这些函数返回的值进行排序。
+*
+* 该函数返回按相应顺序方向排序的 (对象 | 字符串 | 数字) 数组。
+* 若两个 (对象 | 字符串 | 数字) 在当前排序依据上具有相同值，则使用下一个排序依据来确定它们的顺序。
+* 若排序依据的数量少于排序方向的数量，则剩余排序依据将沿用最后一个指定的排序方向。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param arr - The array of items to sort. 要排序的数组
+* @param accords - The sorting criteria: keys of T or functions that extract a sort key from each item. 排序依据：T 的键名或从每个元素提取排序键的函数
+* @param orders - The sort direction for each criterion. If fewer orders than accords, the last order is reused. Defaults to 'asc'. 每个排序依据的排序方向。若排序方向少于排序依据，则复用最后一个方向。默认 'asc'
+* @returns A new sorted array (the original array is not mutated). 排序后的新数组（原数组不变）
+*
+* @example
+* ```ts
+* // Sort an array of objects by 'user' in ascending order and 'age' in descending order.
+* const users = [
+*   { user: 'fred', age: 48 },
+*   { user: 'barney', age: 34 },
+*   { user: 'fred', age: 40 },
+*   { user: 'barney', age: 36 },
+* ];
+*
+* const result = orderBy(users, [obj => obj.user, 'age'], ['asc', 'desc']);
+* // result will be:
+* // [
+* //   { user: 'barney', age: 36 },
+* //   { user: 'barney', age: 34 },
+* //   { user: 'fred', age: 48 },
+* //   { user: 'fred', age: 40 },
+* // ]
+* ```
+*/
+function orderBy(arr, accords, orders = "asc") {
+	if (arr.length <= 1) return arr.length === 0 ? [] : [...arr];
+	const accordList = toArray(accords);
+	const orderList = toArray(orders);
+	const keyCount = accordList.length;
+	const ol = orderList.length;
+	const lastOrder = ol > 0 ? orderList[ol - 1] : "asc";
+	const extractors = [];
+	const dirs = [];
+	for (let i = 0; i < keyCount; i++) {
+		const accord = accordList[i];
+		if (isFunction(accord)) extractors.push(accord);
+		else {
+			const key = accord;
+			extractors.push((item) => item[key]);
+		}
+		const order = i < ol ? orderList[i] : lastOrder;
+		dirs.push(order === "desc" ? -1 : 1);
+	}
+	return arr.slice().sort((a, b) => {
+		for (let i = 0; i < keyCount; i++) {
+			const valueA = extractors[i](a);
+			const valueB = extractors[i](b);
+			const aIsNaN = Number.isNaN(valueA);
+			const bIsNaN = Number.isNaN(valueB);
+			const aIsUndef = isUndefined(valueA);
+			const bIsUndef = isUndefined(valueB);
+			if ((aIsNaN || aIsUndef) && (bIsNaN || bIsUndef)) return 0;
+			if (aIsNaN || aIsUndef) return 1;
+			if (bIsNaN || bIsUndef) return -1;
+			if (valueA < valueB) return -dirs[i];
+			if (valueA > valueB) return dirs[i];
+		}
+		return 0;
+	});
+}
+//#endregion
+//#region src/array/partition.ts
+/**
+* Splits an array into two groups based on a predicate function.
+*
+* The first group contains elements that satisfy the predicate function,
+* and the second group contains elements that do not satisfy the predicate function.
+*
+* 根据谓词函数将数组分成两组。
+*
+* 第一组包含满足谓词函数的元素，第二组包含不满足谓词函数的元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to partition. 要分区的数组
+* @param predicate - The function to test each element. 用于测试每个元素的函数
+* @returns A tuple of two arrays: [elements that satisfy predicate, elements that don't]. 包含两个数组的元组：[满足谓词的元素, 不满足谓词的元素]
+*
+* @remarks
+* O(n) time complexity - single pass through the array
+*
+* O(n) 时间复杂度 - 单次遍历数组
+*
+* @example
+* ```ts
+* partition([1, 2, 3, 4, 5], n => n % 2 === 0)
+* // => [[2, 4], [1, 3, 5]]
+* ```
+*
+* @example
+* ```ts
+* partition(['a', 'bb', 'ccc', 'd'], s => s.length > 1)
+* // => [['bb', 'ccc'], ['a', 'd']]
+* ```
+*/
+function partition(array, predicate) {
+	const pass = [];
+	const fail = [];
+	for (let i = 0; i < array.length; i++) {
+		const item = array[i];
+		if (predicate(item, i, array)) pass.push(item);
+		else fail.push(item);
+	}
+	return [pass, fail];
+}
+//#endregion
+//#region src/array/range.ts
+/**
+* Generate a range array of numbers. The `stop` is exclusive.
+*
+* 生成一个数字范围的数组, `stop` 是不包含的。
+*
+* @param args
+* @returns a range array of numbers / 返回一个数字范围的数组
+* @throws {RangeError} When `step` is zero. 当 `step` 为零时抛出。
+*/
+function range(...args) {
+	let start, stop, step;
+	if (args.length === 1) {
+		start = 0;
+		stop = args[0];
+		step = 1;
+	} else [start, stop, step = 1] = args;
+	const arr = [];
+	if (step === 0) throw new RangeError("step must not be zero");
+	if (!Number.isFinite(start) || !Number.isFinite(stop) || !Number.isFinite(step)) throw new RangeError("start, stop and step must be finite numbers");
+	if (step > 0) {
+		let i = 0;
+		while (start + i * step < stop) {
+			arr.push(start + i * step);
+			i++;
+		}
+	} else {
+		let i = 0;
+		while (start + i * step > stop) {
+			arr.push(start + i * step);
+			i++;
+		}
+	}
+	return arr;
+}
+//#endregion
+//#region src/array/sample.ts
+/**
+* Gets a random element from an array.
+*
+* 从数组中获取一个随机元素。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to sample from. 要取样的数组
+* @returns A random element from the array, or undefined if the array is empty. 数组中的随机元素，如果数组为空则返回 undefined
+*
+* @remarks
+* O(1) time complexity - direct index access
+*
+* O(1) 时间复杂度 - 直接索引访问
+*
+* @example
+* ```ts
+* sample([1, 2, 3, 4, 5])
+* // => 2 (random element from the array)
+* ```
+*
+* @example
+* ```ts
+* sample([])
+* // => undefined
+* ```
+*/
+function sample(array) {
+	if (array.length === 0) return void 0;
+	return array[Math.floor(Math.random() * array.length)];
+}
+/**
+* Gets n random elements from an array.
+*
+* If n is greater than the array length, returns all elements in random order.
+* If n is 0 or negative, returns an empty array.
+*
+* 从数组中获取 n 个随机元素。
+*
+* 如果 n 大于数组长度，则以随机顺序返回所有元素。
+* 如果 n 为 0 或负数，则返回空数组。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to sample from. 要取样的数组
+* @param size - The number of elements to sample. 要取样的元素数量
+* @returns An array of random elements from the array. 数组中的随机元素数组
+*
+* @remarks
+* O(n) time complexity where n is the size parameter. Uses Fisher-Yates partial shuffle for unbiased sampling
+*
+* O(n) 时间复杂度，其中 n 为 size 参数。使用 Fisher-Yates 部分洗牌算法实现无偏取样
+*
+* Implementation uses Fisher-Yates partial shuffle, which requires a full shallow copy of the array (O(n) memory). When sampling a very small subset from an extremely large array, memory usage scales with array size rather than sample size.
+*
+* 实现基于 Fisher-Yates 部分洗牌算法，需要先对数组进行浅拷贝（O(n) 内存）。当从超大数组中抽取极小样本时，内存消耗与数组大小成正比，而非样本大小。
+*
+* @example
+* ```ts
+* sampleSize([1, 2, 3, 4, 5], 2)
+* // => [3, 1] (random 2 elements from the array)
+* ```
+*
+* @example
+* ```ts
+* sampleSize([1, 2, 3], 5)
+* // => [2, 1, 3] (all elements in random order)
+* ```
+*/
+function sampleSize(array, size) {
+	if (array.length === 0 || size <= 0) return [];
+	const resultLength = Math.min(size, array.length);
+	const result = array.slice();
+	for (let i = 0; i < resultLength; i++) {
+		const randomIndex = i + Math.floor(Math.random() * (result.length - i));
+		[result[i], result[randomIndex]] = [result[randomIndex], result[i]];
+	}
+	return result.slice(0, resultLength);
+}
+//#endregion
+//#region src/array/shuffle.ts
+/**
+* Array shuffling, randomly rearranging the order of elements in an array
+*
+* 数组洗牌，随机打乱数组中的顺序
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param array - The array to shuffle / 要洗牌的数组
+* @returns The shuffled array (same reference as input) / 洗牌后的数组（与输入为同一引用）
+*
+* @remarks
+* This function **mutates** the original array and returns it.
+* If you need to preserve the original array, pass a copy: `shuffle([...arr])`.
+*
+* 此函数会**修改**原数组并返回它。
+* 如果需要保留原数组，请传入副本：`shuffle([...arr])`。
+*
+* @example
+* ```ts
+* shuffle([1, 2, 3]) // => [1, 3, 2]
+* ```
+*/
+function shuffle(array) {
+	let i = array.length - 1;
+	while (i > 0) {
+		const j = Math.floor(Math.random() * (i + 1));
+		const tmp = array[j];
+		array[j] = array[i];
+		array[i] = tmp;
+		i--;
+	}
+	return array;
+}
+//#endregion
+//#region src/array/sort-by.ts
+/**
+* Sorts an array of (objects | strings | numbers) based on the given `accords`.
+*
+* - If you provide keys, it sorts the objects by the values of those keys.
+* - If you provide functions, it sorts based on the values returned by those functions.
+*
+* The function returns the array of (objects | strings | numbers) sorted in ascending order.
+* If two (objects | strings | numbers) the same value for the current accordion, it uses the next accordion to determine their order.
+*
+* 根据给定的`accords`对 (objects | strings | numbers) 数组进行排序。
+*
+* - 如果提供键名，则按这些键对应的值对对象进行排序。
+* - 如果提供函数，则根据这些函数返回的值进行排序。
+*
+* 该函数返回按升序排序的 (objects | strings | numbers) 数组。
+* 若两个 (objects | strings | numbers) 在当前排序依据上具有相同值，则使用下一个排序依据来确定它们的顺序。
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param arr - The array to sort / 要排序的数组
+* @param accords - The accordion to use to sort by / 用于排序的排序依据
+* @returns The sorted array / 排序后的数组
+*
+* @example
+* ```ts
+* const users = [
+*  { user: 'foo', age: 24 },
+*  { user: 'bar', age: 7 },
+*  { user: 'foo', age: 8 },
+*  { user: 'bar', age: 29 },
+* ];
+*
+* sortBy(users, ['user', 'age']);
+* sortBy(users, [obj => obj.user, 'age']);
+* // results will be:
+* // [
+* //   { user : 'bar', age: 7 },
+* //   { user : 'bar', age: 29 },
+* //   { user : 'foo', age: 8 },
+* //   { user : 'foo', age: 24 },
+* // ]
+* ```
+*/
+function sortBy(arr, accords) {
+	return orderBy(arr, accords, "asc");
+}
+//#endregion
+//#region src/array/uniq.ts
+/**
+* Unique array by array element
+*
+* 通过数组元素的相同性来实现数组去重
+*
+* @category Array
+*
+* @see {@link uniqBy} and {@link uniqWith} — for custom deduplication strategies
+* @see {@link uniqBy} 和 {@link uniqWith} — 自定义去重策略
+*
+* @param v - The array to remove duplicates from / 要去重的数组
+* @returns The array with duplicates removed / 去重后的数组
+*
+* @example
+* ```ts
+* uniq([1, 1, 2, 2, 3, 3]) // => [1, 2, 3]
+* ```
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam U - The type of the mapped key or second array elements / 映射键或第二个数组元素的类型
+*/
+function uniq(v) {
+	return Array.from(new Set(v));
+}
+/**
+* Unique array by a custom predicate function
+*
+* 通过自定义 predicate 函数实现数组去重
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @typeParam U - The type of the mapped key or second array elements / 映射键或第二个数组元素的类型
+* @param v - The array to remove duplicates from / 要去重的数组
+* @param predicate - The function to use to transform each element / 用于每个元素的 predicate 函数
+* @returns The array with duplicates removed / 去重后的数组
+*
+* @example
+* ```ts
+* uniqBy([
+*  { id: 1, name: 'John' },
+*  { id: 2, name: 'Mark' },
+*  { id: 3, name: 'John' },
+* ], item => item.name)
+* // => [{ id: 1, name: 'John' }, { id: 2, name: 'Mark' }]
+* ```
+*
+* @example
+* ```ts
+* uniqBy([1.1, 1.2, 2.1, 2.2], Math.floor)
+* // => [1.1, 2.1]
+* ```
+*/
+function uniqBy(v, predicate) {
+	const map = /* @__PURE__ */ new Map();
+	for (let i = 0; i < v.length; i++) {
+		const value = v[i];
+		const key = predicate(value);
+		if (!map.has(key)) map.set(key, value);
+	}
+	return Array.from(map.values());
+}
+/**
+* Unique array with a custom equality function
+*
+* 通过自定义相等函数实现数组去重
+*
+* @category Array
+*
+* @remarks
+* Time complexity: O(n²). For large arrays, consider using {@link uniqBy} with a key function for O(n) performance.
+*
+* 时间复杂度：O(n²)。对于大数组，建议使用 {@link uniqBy} 配合键函数以获得 O(n) 性能。
+*
+* @param array - The array to remove duplicates from / 要去重的数组
+* @param equal - The function to determine equality between elements / 判断元素是否相等的函数
+* @returns The array with duplicates removed / 去重后的数组
+*
+* @example
+* ```ts
+* uniqWith([1, 1, 2, 2, 3, 3], (a, b) => a === b)
+* // => [1, 2, 3]
+* ```
+*/
+function uniqWith(array, equal) {
+	return array.reduce((acc, cur) => {
+		if (!acc.some((item) => equal(cur, item))) acc.push(cur);
+		return acc;
+	}, []);
+}
+//#endregion
+//#region src/array/union.ts
+/**
+* Union two arrays
+*
+* 两个数组的并集
+*
+* @category Array
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param a - The first array to union. 第一个数组
+* @param b - The second array to union. 第二个数组
+* @returns A new array containing unique elements from both arrays. 包含两个数组中唯一元素的新数组
+*
+* @example
+* ```ts
+* union([1, 2, 3], [2, 4, 5, 6]) // => [1, 2, 3, 4, 5, 6]
+* union([1, 2], [3, 4]) // => [1, 2, 3, 4]
+* ```
+*/
+function union(a, b) {
+	return uniq([...a, ...b]);
+}
+/**
+* Union two arrays by predicate
+*
+* 两个数组的并集，根据 predicate 函数进行比较
+*
+* @category Array
+*
+* @param a - The first array to union / 第一个数组
+* @param b - The second array to union / 第二个数组
+* @param predicate - The function to use to transform each element for deduplication / 用于每个元素的 predicate 函数以进行去重
+* @returns The array with duplicates removed / 去重后的数组
+*
+* @example
+* ```ts
+* unionBy([1, 2, 3], [2, 4, 5, 6], (item) => item % 2) // => [1, 2]
+* unionBy([1, 2], [3, 4], (item) => item % 2) // => [1, 2]
+* ```
+*/
+function unionBy(a, b, predicate) {
+	return uniqBy([...a, ...b], predicate);
+}
+//#endregion
+//#region src/function/invoke.ts
+function invoke(fns, ...args) {
+	if (isArray(fns)) fns.forEach((fn) => fn?.(...args));
+	else return fns(...args);
+}
+//#endregion
+//#region src/event/emitter.ts
+/**
+* Create an event emitter.
+*
+* 创建一个事件发射器。
+*
+* @category Event
+*
+* @param listeners - Optional pre-existing listener map to initialize with. 可选的预设监听器映射
+*
+* @returns A new event emitter instance. 新的事件发射器实例
+*
+* @example
+* ```ts
+* const emitter = createEmitter()
+*
+* // listen for an event
+* emitter.on('event-name', (data) => console.log(data))
+*
+* // emit an event
+* emitter.emit('event-name', data)
+* ```
+*/
+function createEmitter(listeners) {
+	listeners ??= /* @__PURE__ */ new Map();
+	const on = (type, listener) => {
+		const list = listeners.get(type);
+		if (list) list.push(listener);
+		else listeners.set(type, [listener]);
+	};
+	const off = (type, listener) => {
+		const list = listeners.get(type);
+		if (list?.length) if (listener) remove(list, listener);
+		else listeners.delete(type);
+	};
+	const emit = (type, event) => {
+		const list = listeners.get(type);
+		if (list?.length) invoke([...list], event);
+		const wildcardList = listeners.get("*");
+		if (wildcardList?.length) invoke([...wildcardList], type, event);
+	};
+	const once = (type, listener) => {
+		const wrapped = (...args) => {
+			invoke(listener, ...args);
+			off(type, wrapped);
+		};
+		on(type, wrapped);
+	};
+	return {
+		listeners,
+		on,
+		off,
+		once,
+		emit
+	};
+}
+//#endregion
+//#region src/function/compose.ts
+/**
+* compose multiple functions, right to left
+*
+* 组合多个函数，从右到左执行
+*
+* @category Function
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param fns - The functions to compose. 要组合的函数
+* @returns A new function that is the composition of the input functions. 由输入函数组合而成的新函数
+*
+* @example
+* ```ts
+* const add = (a) => a + 1
+* const subtract = (a) => a - 2
+* const multiply = (a, b) => a * b
+* compose(add, subtract, multiply)(1, 2) // => (1 * 2) - 2 + 1 = 1
+* ```
+*/
+function compose(...fns) {
+	return function(...args) {
+		const len = fns.length;
+		if (len === 0) return args[0];
+		if (len === 1) return fns[0](...args);
+		return fns.slice(0, -1).reduceRight((acc, fn) => fn(acc), fns[len - 1](...args));
+	};
+}
+//#endregion
+//#region src/function/throttle.ts
+/**
+* Throttle execution of a function. Especially useful for rate limiting
+* execution of handlers on events like resize and scroll.
+*
+* 限制函数的执行频率。特别适用于限制事件处理程序的执行速率，例如调整大小和滚动事件。
+*
+* @category Function
+*
+* @param delay
+* A zero-or-greater delay in milliseconds. For event callbacks, values around 100 or 250 (or even higher) are most useful.
+*
+* 一个零或更大的延迟时间，以毫秒为单位。对于事件回调，大约100或250（甚至更高）的值最为实用。
+*
+* @param callback
+* A function to be executed after delay milliseconds. The `this` context and all arguments are passed through, as-is, to `callback` when the throttled-function is executed.
+*
+* 一个在延迟毫秒后执行的函数。当节流函数执行时，`this`上下文和所有参数都会原样传递给`callback`。
+*
+* @param options - An object to configure options. 用于配置选项的对象。
+* @param options.noTrailing - If true, suppresses the trailing edge execution. 如果为 true，抑制后缘执行。
+* @param options.noLeading - If true, suppresses the leading edge (first) execution. 如果为 true，抑制前缘（首次）执行。
+* @param options.debounceMode - If true, runs the callback at the beginning of the delay (debounce behavior). 如果为 true，在延迟期开始时执行回调（防抖行为）。
+*
+* @returns A throttled version of the callback with a `.cancel()` method. 带有 `.cancel()` 方法的节流版本回调函数。
+*
+* @remarks
+* The returned function includes a `cancel(options?: CancelOptions)` method:
+* - `cancel()` — cancels all future executions
+* - `cancel({ upcomingOnly: true })` — cancels only the next scheduled execution, but allows subsequent calls
+*
+* When both `noLeading=true` and `noTrailing=true`, the callback will never execute.
+*
+* 返回的函数包含 `cancel(options?: CancelOptions)` 方法：
+* - `cancel()` — 取消所有未来执行
+* - `cancel({ upcomingOnly: true })` — 仅取消下次计划执行，允许后续调用
+*
+* 当 `noLeading=true` 和 `noTrailing=true` 同时设置时，回调永远不会执行。
+*
+* @see {@link debounce} — for debounce behavior (use debounceMode option or debounce wrapper)
+* @see {@link debounce} — 了解防抖行为（使用 debounceMode 选项或 debounce 包装器）
+*
+* @example
+* Basic throttle — scroll handler that fires at most once every 100ms:
+* ```ts
+* const onScroll = throttle(100, () => {
+*   console.log('scrolled')
+* })
+* window.addEventListener('scroll', onScroll)
+* ```
+*
+* @example
+* With noLeading — skip the first call, execute after 200ms of inactivity:
+* ```ts
+* const fn = throttle(200, () => console.log('tick'), { noLeading: true })
+* fn() // skipped (noLeading)
+* fn() // scheduled for trailing edge
+* ```
+*
+* @example
+* Debounce mode — execute at the beginning of the delay period:
+* ```ts
+* const fn = throttle(300, () => console.log('debounced'), { debounceMode: true })
+* fn() // => 'debounced' (immediately)
+* fn() // ignored (within delay)
+* fn() // ignored (within delay)
+* // After 300ms of inactivity, next call triggers immediately again
+* ```
+*/
+function throttle(delay, callback, options) {
+	const { noTrailing = false, noLeading = false, debounceMode = void 0 } = options || {};
+	if (!Number.isFinite(delay) || delay < 0) throw new RangeError("delay must be a finite non-negative number");
+	let timeoutID;
+	let cancelled = false;
+	let lastExec = 0;
+	function clearExistingTimeout() {
+		if (timeoutID) {
+			clearTimeout(timeoutID);
+			timeoutID = void 0;
+		}
+	}
+	function cancel(options = {}) {
+		const { upcomingOnly = false } = options;
+		clearExistingTimeout();
+		cancelled = !upcomingOnly;
+	}
+	/**
+	* The `wrapper` function encapsulates all of the throttling / debouncing
+	* functionality and when executed will limit the rate at which `callback`
+	* is executed.
+	*
+	* `wrapper`函数封装了所有的节流/防抖功能，执行时将限制`callback`的回调执行频率。
+	*/
+	function wrapper(...args) {
+		const self = this;
+		const elapsed = Date.now() - lastExec;
+		if (cancelled) return;
+		function exec() {
+			lastExec = Date.now();
+			callback.apply(self, args);
+		}
+		/**
+		* If `debounceMode` is true (at begin) this is used to clear the flag
+		* to allow future `callback` executions.
+		*
+		* 如果`debounceMode`为真（在开始时），这用于清除标志
+		* 以允许未来的`callback`执行。
+		*/
+		function clear() {
+			timeoutID = void 0;
+		}
+		if (!noLeading && debounceMode && !timeoutID)
+ /**
+		* Since `wrapper` is being called for the first time and
+		* `debounceMode` is true (at begin), execute `callback`
+		* and noLeading != true.
+		*
+		* 由于`wrapper`是首次被调用，且 `debounceMode`为真（在开始时），
+		* 执行 `callback` 且`noLeading`不为真。
+		*/
+		exec();
+		clearExistingTimeout();
+		if (debounceMode === void 0 && elapsed > delay) if (noLeading) {
+			/**
+			* In throttle mode with noLeading, if `delay` time has
+			* been exceeded, update `lastExec` and schedule `callback`
+			* to execute after `delay` ms.
+			*
+			* 在无前导的节流模式下，若`delay`时间已超过：
+			* 更新`lastExec`并安排`callback`
+			* 在`delay`毫秒后执行。
+			*/
+			lastExec = Date.now();
+			if (!noTrailing) timeoutID = setTimeout(exec, delay);
+		} else
+ /**
+		* In throttle mode without noLeading, if `delay` time has been exceeded, execute
+		* `callback`.
+		*
+		* 在无前导的节流模式下，若已超过`delay`时间，则执行 `callback`。
+		*/
+		exec();
+		else if (noTrailing !== true)
+ /**
+		* In trailing throttle mode, since `delay` time has not been
+		* exceeded, schedule `callback` to execute `delay` ms after most
+		* recent execution.
+		*
+		* If `debounceMode` is true (at begin), schedule `clear` to execute
+		* after `delay` ms.
+		*
+		* If `debounceMode` is false (at end), schedule `callback` to
+		* execute after `delay` ms.
+		*
+		* 在节流模式中，由于`delay`时间尚未超过，安排`callback`在最近一次执行后的`delay`毫秒执行。
+		*
+		* 如果`debounceMode`为true（在开始时），安排`clear`在`delay`毫秒后执行。
+		*
+		* 如果`debounceMode`为false（在结束时），安排`callback`在 `delay`毫秒后执行。
+		*/
+		timeoutID = setTimeout(debounceMode && !noLeading ? clear : exec, debounceMode === void 0 ? delay - elapsed : delay);
+	}
+	wrapper.cancel = cancel;
+	return wrapper;
+}
+//#endregion
+//#region src/function/debounce.ts
+/**
+* Debounce execution of a function. Debouncing, unlike throttling,
+* guarantees that a function is only executed a single time, either at the
+* very beginning of a series of calls, or at the very end.
+*
+* 防抖函数的执行。与节流不同，防抖确保一个函数在一系列调用中仅执行一次，
+* 要么在调用的最开始，要么在调用的最末尾。
+*
+* @category Function
+*
+* @param delay
+* A zero-or-greater delay in milliseconds. For event callbacks, values around 100 or 250 (or even higher) are most useful.
+*
+* 一个零或更大的延迟，以毫秒为单位。对于事件回调，大约100或250（甚至更高）的值最为实用。
+*
+* @param callback
+* A function to be executed after delay milliseconds. The `this` context and all arguments are passed through, as-is, to `callback` when the debounced-function is executed.
+*
+* 一个在延迟毫秒后执行的函数。当防抖函数执行时，`this`上下文和所有参数都会原样传递给`callback`。
+*
+* @param options - An object to configure options. 用于配置选项的对象。
+* @param options.atBegin - If true, the callback is executed at the beginning of the delay period instead of the end. 如果为 true，回调在延迟期开始时而非结束时执行。
+* @returns A debounced version of the callback with a `.cancel()` method. 带有 `.cancel()` 方法的防抖版本回调函数。
+*
+* @remarks
+* Internally delegates to {@link throttle} with `debounceMode` set. The returned function
+* includes a `cancel(options?: CancelOptions)` method to cancel pending executions.
+*
+* 内部委托给设置了 `debounceMode` 的 {@link throttle}。返回的函数包含 `cancel(options?: CancelOptions)` 方法用于取消待执行的调用。
+*
+* @see {@link throttle} — for throttle behavior (debounce delegates to throttle internally)
+* @see {@link throttle} — 了解节流行为（debounce 内部委托给 throttle）
+*
+* @example
+* Basic debounce — input handler that fires 250ms after the last keystroke:
+* ```ts
+* const onInput = debounce(250, (value: string) => {
+*   console.log('Search:', value)
+* })
+* // Each call resets the timer; callback runs only after 250ms of inactivity
+* onInput('a')
+* onInput('ab')
+* onInput('abc') // Only this triggers the callback after 250ms
+* ```
+*
+* @example
+* atBegin mode — fires immediately on the first call, then ignores subsequent calls:
+* ```ts
+* const onClick = debounce(1000, () => console.log('clicked'), { atBegin: true })
+* onClick() // => 'clicked' (immediately)
+* onClick() // ignored (within delay)
+* onClick() // ignored (within delay)
+* ```
+*
+* @example
+* Cancel a pending execution:
+* ```ts
+* const fn = debounce(500, () => console.log('done'))
+* fn()
+* fn.cancel() // The scheduled execution is cancelled
+* ```
+*/
+function debounce(delay, callback, options) {
+	if (!Number.isFinite(delay) || delay < 0) throw new RangeError("delay must be a finite non-negative number");
+	const { atBegin = false } = options || {};
+	return throttle(delay, callback, { debounceMode: atBegin });
+}
+//#endregion
+//#region src/function/memoize.ts
+/**
+* Memoize a function, caching its results based on arguments.
+* Supports max cache size and TTL (time-to-live) expiration.
+*
+* 记忆化函数，缓存基于参数的结果。支持最大缓存大小和 TTL 过期机制
+*
+* @category Function
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+* @param func - The function to memoize. 要记忆化的函数
+* @param options - Options for memoization. 记忆化配置
+* @param options.maxSize
+* @param options.ttl
+* @param options.keyResolver
+* @returns A memoized version of the function. 记忆化后的函数
+*
+* @remarks
+* When neither `maxSize` nor `ttl` is set, the cache grows without bound.
+* For long-running applications, it is strongly recommended to set at least one of these
+* options to prevent memory leaks.
+*
+* 当 `maxSize` 和 `ttl` 都未设置时，缓存会无限增长。对于长期运行的应用，
+* 强烈建议至少设置其中一个选项以防止内存泄漏。
+*
+* The default key resolver uses `JSON.stringify`, which has limitations:
+* - Circular references will throw `TypeError`
+* - Object property order affects the key (`{a:1,b:2}` ≠ `{b:2,a:1}`)
+* - `undefined`, functions, and Symbols are ignored or converted to `null`
+* - Cannot distinguish certain types (`JSON.stringify([1])` vs `JSON.stringify({"0":1})`)
+* Use `keyResolver` for more robust key generation.
+*
+* 默认的 key 生成器使用 `JSON.stringify`，存在以下限制：
+* - 循环引用会抛出 `TypeError`
+* - 对象属性顺序影响 key（`{a:1,b:2}` ≠ `{b:2,a:1}`）
+* - `undefined`、函数和 Symbol 会被忽略或转为 `null`
+* - 无法区分某些类型。请使用 `keyResolver` 进行更健壮的 key 生成。
+*
+* @example
+* ```ts
+* const add = (a: number, b: number) => a + b
+* const memoizedAdd = memoize(add)
+* memoizedAdd(1, 2) // => 3, computed
+* memoizedAdd(1, 2) // => 3, cached
+* memoizedAdd(2, 1) // => 3, different args, computed
+* ```
+*
+* @example
+* With TTL (expires after 1000ms) / 缓存有效期（毫秒）。
+* ```ts
+* const fn = memoize(someExpensiveFn, { ttl: 1000 })
+* fn('key') // computed
+* fn('key') // cached (within TTL)
+* ```
+*
+* @example
+* With maxSize (LRU eviction when limit exceeded) / 最大缓存条目数量（LRU 缓存策略）
+* ```ts
+* const fn = memoize(someExpensiveFn, { maxSize: 100 })
+* ```
+*
+* @example
+* With custom key resolver / 自定义 key 生成器
+* ```ts
+* const fn = memoize(someExpensiveFn, {
+*   keyResolver: (a, b) => `${a}:${b}`
+* })
+* ```
+*
+* @example
+* Clear cache / 清除缓存
+* ```ts
+* const fn = memoize(someExpensiveFn)
+* fn('key') // computed
+* fn('key') // cached
+* fn.clear()
+* ```
+*/
+function memoize(func, options) {
+	const { maxSize, ttl, keyResolver } = options ?? {};
+	if (maxSize !== void 0 && maxSize < 0) throw new RangeError("maxSize must be a non-negative integer");
+	if (ttl !== void 0 && ttl < 0) throw new RangeError("ttl must be a non-negative number");
+	if (maxSize === 0) {
+		const noCacheFn = function(...args) {
+			return func.apply(this, args);
+		};
+		noCacheFn.clear = () => {};
+		return noCacheFn;
+	}
+	const cache = /* @__PURE__ */ new Map();
+	const memoized = function(...args) {
+		const key = keyResolver ? keyResolver(...args) : JSON.stringify(args);
+		const entry = cache.get(key);
+		if (entry) {
+			if (isUndefined(ttl) || Date.now() - entry.timestamp < ttl) {
+				cache.delete(key);
+				cache.set(key, entry);
+				return entry.value;
+			}
+			cache.delete(key);
+		}
+		const value = func.apply(this, args);
+		if (!isUndefined(maxSize) && cache.size >= maxSize) {
+			const oldestKey = cache.keys().next().value;
+			cache.delete(oldestKey);
+		}
+		cache.set(key, {
+			value,
+			timestamp: Date.now()
+		});
+		return value;
+	};
+	memoized.clear = () => cache.clear();
+	return memoized;
+}
+//#endregion
+//#region src/function/noop.ts
+/**
+* noop function
+*
+* 空函数
+*
+* @category Function
+*
+* @returns Nothing. 无返回值
+*/
+function noop() {}
+//#endregion
+//#region src/function/once.ts
+/**
+* Create a function that can only be called once,
+* and repeated calls return the result of the first call
+*
+* 创建只能被调用一次的函数，重复调用返回第一次调用的结果
+*
+* @category Function
+*
+* @typeParam T - The type of the function / 函数的类型
+* @param func - The function to wrap. 要包装的函数
+* @returns A new function that can only be called once. 只能被调用一次的新函数
+*
+* @remarks
+* If the wrapped function throws an error on its first call, the `called` flag remains `false`, allowing the function to be retried on the next invocation. This implements a retry-on-exception behavior.
+*
+* 如果包装的函数在第一次调用时抛出异常，`called` 标志保持为 `false`，允许在下一次调用时重试。这实现了异常重试行为。
+*
+* @example
+* ```ts
+* const add = (a, b) => a + b
+* const onceAdd = once(add)
+* onceAdd(1, 2) // => 3
+* onceAdd(2, 3) // => 3
+* ```
+*/
+function once(func) {
+	let called = false;
+	let res;
+	return function(...args) {
+		if (called) return res;
+		res = func.apply(this, args);
+		called = true;
+		return res;
+	};
+}
+//#endregion
+//#region src/guard/not-nullish.ts
+/**
+* guard function that returns if val is not null or undefined
+*
+* 守卫函数，返回 val 不为 null 或 undefined
+*
+* @category Guard
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param val - The value to check. 要检查的值
+* @returns True if the value is not null or undefined, false otherwise. 如果值不是null或undefined则返回true，否则返回false
+*
+* @example
+* ```ts
+* [1, '', false, null, undefined].filter(notNullish) // => [1, '', false]
+* ```
+*/
+function notNullish(val) {
+	return !isNil(val);
+}
+//#endregion
+//#region src/guard/not-undefined.ts
+/**
+* guard function that returns if val is not undefined
+*
+* 守卫函数，返回 val 不为 undefined
+*
+* @category Guard
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param val - The value to check. 要检查的值
+* @returns True if the value is not undefined, false otherwise. 如果值不是undefined则返回true，否则返回false
+*
+* @example
+* ```ts
+* [1, '', false, undefined].filter(notUndefined) // => [1, '', false]
+* ```
+*/
+function notUndefined(val) {
+	return !isUndefined(val);
+}
+//#endregion
+//#region src/guard/to-error.ts
+/**
+* Ensures a value is an Error, throws if not
+*
+* 确保值是 Error，如果不是则抛出错误
+*
+* @category Guard
+*
+* @param v - The value to check. 要检查的值
+* @param message - Custom error message if the value is not an Error. 如果值不是 Error 时的自定义错误消息
+* @returns The value if it is an Error. 如果是 Error 则返回该值
+*
+* @throws Error if the value is not an Error. 如果值不是 Error 则抛出错误
+*
+* @example
+* ```ts
+* toError(new Error('test')) // => Error('test')
+* toError('not an error', 'Expected an Error') // => throws Error('Expected an Error')
+* ```
+*/
+function toError(v, message) {
+	if (!isError(v)) throw new Error(message ?? "Expected an Error");
+	return v;
+}
+//#endregion
+//#region src/guard/to-number.ts
+/**
+* Converts a value to a number
+*
+* 将值转换为数字
+*
+* @category Guard
+*
+* @param v - The value to convert. 要转换的值
+* @returns The converted number, or NaN if conversion is not possible. 转换后的数字，如果无法转换则返回 NaN
+*
+* @remarks
+* Symbols are specially handled: `Number(Symbol())` would throw a `TypeError`, so this function returns `NaN` for symbols instead.
+*
+* Symbol 被特殊处理：`Number(Symbol())` 会抛出 `TypeError`，因此此函数对 Symbol 返回 `NaN`。
+*
+* @example
+* ```ts
+* toNumber('42') // => 42
+* toNumber('hello') // => NaN
+* toNumber(undefined) // => NaN
+* ```
+*/
+function toNumber(v) {
+	return isSymbol(v) ? NaN : Number(v);
+}
+//#endregion
+//#region src/guard/to-finite.ts
+/**
+* Converts a value to a finite number
+*
+* 将值转换为有限数字
+*
+* @category Guard
+*
+* @param v - The value to convert. 要转换的值
+* @returns The converted finite number, or NaN if conversion is not possible or result is not finite. 转换后的有限数字，如果无法转换或结果不是有限数字则返回 NaN
+*
+* @example
+* ```ts
+* toFinite(42) // => 42
+* toFinite(Infinity) // => NaN
+* toFinite('hello') // => NaN
+* ```
+*/
+function toFinite(v) {
+	const num = toNumber(v);
+	return Number.isFinite(num) ? num : NaN;
+}
+//#endregion
+//#region src/guard/to-string.ts
+/**
+* Get the string representation of a value
+*
+* 获取值的字符串表示
+*
+* @category Guard
+*
+* @param s - The value to get the string representation for. 要获取字符串表示的值
+* @returns The string representation of the value. 值的字符串表示
+*
+* ```ts
+* toString(42) // => '42'
+* toString('hello') // => 'hello'
+* toString(undefined) // => 'undefined'
+* toString(null) // => 'null'
+* toString({}) // => '[object Object]'
+* ```
+*/
+function toString(s) {
+	return String(s);
+}
+//#endregion
+//#region src/guard/to-truthy.ts
+/**
+* guard function that returns if val is truthy
+*
+* 守卫函数，返回 val 是否为真值
+*
+* @category Guard
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param val - The value to check. 要检查的值
+* @returns True if the value is truthy, false otherwise. 如果值为真值则返回true，否则返回false
+*
+* @example
+* ```ts
+* [1, 2, 3, '', false, undefined].filter(toTruthy) // => [1, 2, 3]
+* ```
+*/
+function toTruthy(val) {
+	return Boolean(val);
+}
+//#endregion
+//#region src/math/clamp.ts
+/**
+* Clamp a number between min and max
+*
+* 返回一个介于最小值和最大值之间的数字
+*
+* @category Math
+*
+* @param n - The number to clamp. 要限制的数字
+* @param min - The minimum value. 最小值
+* @param max - The maximum value. 最大值
+* @returns The clamped number. 限制后的数字
+*
+* @example
+* ```ts
+* clamp(5, 0, 10) // => 5
+* clamp(10, 0, 5) // => 5
+* ```
+*/
+function clamp(n, min, max) {
+	if (min > max) [max, min] = [min, max];
+	return Math.min(max, Math.max(n, min));
+}
+//#endregion
+//#region src/math/deg-to-rad.ts
+/**
+* Convert degrees to radians
+*
+* 将角度转换为弧度
+*
+* @category Math
+*
+* @param degrees - The angle in degrees. 角度值
+* @returns The angle in radians. 弧度值
+*
+* @see {@link radToDeg} — for the inverse conversion
+* @see {@link radToDeg} — 反向转换
+*
+* @example
+* ```ts
+* degToRad(180) // => Math.PI
+* degToRad(90) // => Math.PI / 2
+* degToRad(0) // => 0
+* ```
+*/
+function degToRad(degrees) {
+	return degrees * Math.PI / 180;
+}
+//#endregion
+//#region src/math/gcd.ts
+/**
+* Greatest Common Divisor (GCD) of two numbers
+*
+* 计算两个数的最大公约数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数
+* @param b - The second number. 第二个数
+* @returns The greatest common divisor of a and b. a和b的最大公约数
+*
+* @see {@link lcm} — for least common multiple
+* @see {@link lcm} — 最小公倍数
+*
+* @example
+* ```ts
+* gcd(12, 8) // => 4
+* gcd(17, 13) // => 1
+* gcd(0, 5) // => 5
+* ```
+*/
+function gcd(a, b) {
+	if (!isFinite(a) || !isFinite(b)) return NaN;
+	a = Math.abs(Math.floor(a));
+	b = Math.abs(Math.floor(b));
+	if (a === 0) return b;
+	if (b === 0) return a;
+	while (b !== 0) [a, b] = [b, a % b];
+	return a;
+}
+//#endregion
+//#region src/math/in-range.ts
+function inRange(n, min, max) {
+	if (isUndefined(max)) {
+		max = min;
+		min = 0;
+	}
+	return n >= Math.min(min, max) && n <= Math.max(min, max);
+}
+//#endregion
+//#region src/math/is-prime.ts
+/**
+* Check if a number is prime
+*
+* 检查一个数是否为质数
+*
+* @category Math
+*
+* @param n - The number to check. 要检查的数字
+* @returns True if the number is prime, false otherwise. 如果是质数则返回true，否则返回false
+*
+* @remarks
+* This function uses trial division (O(√n)). For inputs > 1e12, it may be very slow (millions of iterations). Not suitable for cryptographic use. Consider using a probabilistic primality test (e.g. Miller-Rabin) for large numbers.
+*
+* 此函数使用试除法（O(√n)）。对于大于 1e12 的输入，可能非常慢（数百万次迭代）。不适合密码学使用场景。对于大数，请考虑使用概率素性测试（如 Miller-Rabin）。
+*
+* @example
+* ```ts
+* isPrime(7) // => true
+* isPrime(4) // => false
+* isPrime(1) // => false
+* ```
+*/
+function isPrime(n) {
+	if (Number.isNaN(n) || !isFinite(n) || !isInteger(n)) return false;
+	if (n < 2) return false;
+	if (n === 2) return true;
+	if (n % 2 === 0) return false;
+	const sqrt = Math.sqrt(n);
+	for (let i = 3; i <= sqrt; i += 2) if (n % i === 0) return false;
+	return true;
+}
+//#endregion
+//#region src/math/lcm.ts
+/**
+* Least Common Multiple (LCM) of two numbers
+*
+* 计算两个数的最小公倍数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数
+* @param b - The second number. 第二个数
+* @returns The least common multiple of a and b. a和b的最小公倍数
+*
+* @see {@link gcd} — for greatest common divisor
+* @see {@link gcd} — 最大公约数
+*
+* @example
+* ```ts
+* lcm(12, 8) // => 24
+* lcm(17, 13) // => 221
+* lcm(0, 5) // => 0
+* ```
+*/
+function lcm(a, b) {
+	if (!isFinite(a) || !isFinite(b)) return NaN;
+	if (a === 0 || b === 0) return 0;
+	const absA = Math.abs(Math.floor(a));
+	const absB = Math.abs(Math.floor(b));
+	return absA / gcd(absA, absB) * absB;
+}
+//#endregion
+//#region src/math/lerp.ts
+/**
+* Linear interpolation between two values
+*
+* 在两个值之间进行线性插值
+*
+* @category Math
+*
+* @param start - The start value. 起始值
+* @param end - The end value. 结束值
+* @param t - The interpolation factor (unclamped, values outside [0,1] enable extrapolation). 插值因子（不钳位，超出 [0,1] 的值可进行外推）
+* @returns The interpolated value. 插值结果
+*
+* @remarks
+* The interpolation factor `t` is not clamped to [0, 1]. Values outside this range enable extrapolation beyond the start and end values.
+*
+* 插值因子 `t` 不会被限制在 [0, 1] 范围内。超出此范围的值可以进行外推。
+*
+* @example
+* ```ts
+* lerp(0, 100, 0) // => 0
+* lerp(0, 100, 1) // => 100
+* lerp(0, 100, 0.5) // => 50
+* ```
+*/
+function lerp(start, end, t) {
+	return start + (end - start) * t;
+}
+//#endregion
+//#region src/math/map-range.ts
+/**
+* Map a value from one range to another
+*
+* 将一个值从一个范围映射到另一个范围
+*
+* @category Math
+*
+* @param value - The value to map. 要映射的值
+* @param inMin - The minimum of the input range. 输入范围的最小值
+* @param inMax - The maximum of the input range. 输入范围的最大值
+* @param outMin - The minimum of the output range. 输出范围的最小值
+* @param outMax - The maximum of the output range. 输出范围的最大值
+* @returns The mapped value. 映射后的值
+*
+* @example
+* ```ts
+* mapRange(5, 0, 10, 0, 100) // => 50
+* mapRange(0, 0, 10, 0, 100) // => 0
+* mapRange(10, 0, 10, 0, 100) // => 100
+* ```
+*/
+function mapRange(value, inMin, inMax, outMin, outMax) {
+	if (inMin === inMax) return outMin;
+	return (value - inMin) / (inMax - inMin) * (outMax - outMin) + outMin;
+}
+//#endregion
+//#region src/math/sum.ts
+/**
+* Sum of an array of numbers
+*
+* 计算数组中所有数字的和
+*
+* @category Math
+*
+* @param numbers - The array of numbers to sum. 要求和的数字数组
+* @returns The sum of the numbers. 数组中所有数字的和
+*
+* @example
+* ```ts
+* sum([1, 2, 3, 4, 5]) // => 15
+* sum([1.5, 2.5, 3]) // => 7
+* sum([]) // => 0
+* ```
+*/
+function sum(numbers) {
+	let result = 0;
+	for (let i = 0; i < numbers.length; i++) result += numbers[i];
+	return result;
+}
+//#endregion
+//#region src/math/mean.ts
+/**
+* Mean (average) of an array of numbers
+*
+* 计算数组中所有数字的平均值
+*
+* @category Math
+*
+* @param numbers - The array of numbers to calculate the mean. 要计算平均值的数字数组
+* @returns The mean of the numbers. 数组中所有数字的平均值
+*
+* @example
+* ```ts
+* mean([1, 2, 3, 4, 5]) // => 3
+* mean([1.5, 2.5, 3]) // => 2.333...
+* mean([]) // => NaN
+* ```
+*/
+function mean(numbers) {
+	if (numbers.length === 0) return NaN;
+	return sum(numbers) / numbers.length;
+}
+//#endregion
+//#region src/math/median.ts
+/**
+* Median of an array of numbers
+*
+* 计算数组中所有数字的中位数
+*
+* @category Math
+*
+* @param numbers - The array of numbers to calculate the median. 要计算中位数的数字数组
+* @returns The median of the numbers. 数组中所有数字的中位数
+*
+* @example
+* ```ts
+* median([1, 2, 3, 4, 5]) // => 3
+* median([1, 2, 3, 4]) // => 2.5
+* median([]) // => NaN
+* ```
+*/
+function median(numbers) {
+	if (numbers.length === 0) return NaN;
+	if (numbers.length === 1) return numbers[0];
+	const sorted = [...numbers].sort((a, b) => a - b);
+	const mid = Math.floor(sorted.length / 2);
+	if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+	return sorted[mid];
+}
+//#endregion
+//#region src/math/rad-to-deg.ts
+/**
+* Convert radians to degrees
+*
+* 将弧度转换为角度
+*
+* @category Math
+*
+* @param radians - The angle in radians. 弧度值
+* @returns The angle in degrees. 角度值
+*
+* @see {@link degToRad} — for the inverse conversion
+* @see {@link degToRad} — 反向转换
+*
+* @example
+* ```ts
+* radToDeg(Math.PI) // => 180
+* radToDeg(Math.PI / 2) // => 90
+* radToDeg(0) // => 0
+* ```
+*/
+function radToDeg(radians) {
+	return radians * 180 / Math.PI;
+}
+//#endregion
+//#region src/math/random.ts
+/**
+* Random number between min and max
+*
+* 返回一个介于 min 和 max 之间的随机数
+*
+* @param args
+* @returns a random number / 返回一个随机数
+*/
+function random(...args) {
+	let min, max, float;
+	if (args.length === 1) {
+		min = 0;
+		max = args[0];
+		float = false;
+	} else if (typeof args[1] === "number") {
+		min = args[0];
+		max = args[1];
+		float = !!args[2];
+	} else {
+		min = 0;
+		max = args[0];
+		float = !!args[1];
+	}
+	const num = Math.random() * (max - min) + min;
+	return float ? num : Math.floor(num);
+}
+//#endregion
+//#region src/math/decimal.ts
+/**
+* Precisely add two floating-point numbers
+*
+* 精确相加两个数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数字
+* @param b - The second number. 第二个数字
+* @returns The sum of the two numbers. 两个数字的和
+*
+* @remarks
+* The current implementation only considers predictable scenarios and cannot guarantee precise calculation results under all circumstances;
+* For calculation scenarios involving large numbers, finance, science, etc., it is recommended to use open-source libraries such as decimal.js to handle mathematical operations.
+*
+* 当前实现仅考虑可预期的场景，无法保证在所有情况下都能精确计算结果；
+* 涉及到大数、金融、科学等计算场景，建议使用 decimal.js 等开源库来处理数学运算
+*
+* @example
+* ```ts
+* decimalAdd(0.1, 0.2) // => 0.3
+* decimalAdd(1.5, 2.3) // => 3.8
+* decimalAdd(10.001, 20.002) // => 30.003
+* ```
+*/
+function decimalAdd(a, b) {
+	const multiplier = 10 ** Math.max(getDecimalPlaces(a), getDecimalPlaces(b));
+	return (toInteger(a, multiplier) + toInteger(b, multiplier)) / multiplier;
+}
+/**
+* Precisely subtract two floating-point numbers
+*
+* 精确相减两个数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数字
+* @param b - The second number. 第二个数字
+* @returns The difference of the two numbers. 两个数字的差
+*
+* @remarks
+* The current implementation only considers predictable scenarios and cannot guarantee precise calculation results under all circumstances;
+* For calculation scenarios involving large numbers, finance, science, etc., it is recommended to use open-source libraries such as decimal.js to handle mathematical operations.
+*
+* 当前实现仅考虑可预期的场景，无法保证在所有情况下都能精确计算结果；
+* 涉及到大数、金融、科学等计算场景，建议使用 decimal.js 等开源库来处理数学运算
+*
+* @example
+* ```ts
+* decimalSubtract(0.1, 0.2) // => -0.1
+* decimalSubtract(1.5, 2.3) // => -0.8
+* decimalSubtract(10.001, 20.002) // => -10.001
+* ```
+*/
+function decimalSubtract(a, b) {
+	return decimalAdd(a, -b);
+}
+/**
+* Precisely multiply two floating-point numbers
+*
+* 精确相乘两个数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数字
+* @param b - The second number. 第二个数字
+* @returns The product of the two numbers. 两个数字的积
+*
+* @remarks
+* The current implementation only considers predictable scenarios and cannot guarantee precise calculation results under all circumstances;
+* For calculation scenarios involving large numbers, finance, science, etc., it is recommended to use open-source libraries such as decimal.js to handle mathematical operations.
+*
+* 当前实现仅考虑可预期的场景，无法保证在所有情况下都能精确计算结果；
+* 涉及到大数、金融、科学等计算场景，建议使用 decimal.js 等开源库来处理数学运算
+*
+* @example
+* ```ts
+* decimalMultiply(0.1, 0.2) // => 0.02
+* decimalMultiply(1.5, 2.3) // => 3.45
+* decimalMultiply(10.001, 20) // => 200.02
+* ```
+*/
+function decimalMultiply(a, b) {
+	const aPlaces = getDecimalPlaces(a);
+	const bPlaces = getDecimalPlaces(b);
+	const totalDecimals = aPlaces + bPlaces;
+	return toInteger(a, 10 ** aPlaces) * toInteger(b, 10 ** bPlaces) / 10 ** totalDecimals;
+}
+/**
+* Precisely divide two floating-point numbers
+*
+* 精确相除两个数
+*
+* @category Math
+*
+* @param a - The first number. 第一个数字
+* @param b - The second number. 第二个数字
+* @param precision - The precision of the result. 结果的精度
+* @returns The quotient of the two numbers. 两个数字的商
+*
+* @throws {Error} When `b` is zero (division by zero is not allowed). 当 `b` 为零时抛出（不允许除零）。
+*
+* @remarks
+* The current implementation only considers predictable scenarios and cannot guarantee precise calculation results under all circumstances;
+* For calculation scenarios involving large numbers, finance, science, etc., it is recommended to use open-source libraries such as decimal.js to handle mathematical operations.
+*
+* 当前实现仅考虑可预期的场景，无法保证在所有情况下都能精确计算结果；
+* 涉及到大数、金融、科学等计算场景，建议使用 decimal.js 等开源库来处理数学运算
+*
+* @example
+* ```ts
+* decimalDivide(0.1, 0.2) // => 0.5
+* decimalDivide(1.5, 2.3) // => 0.6521739130434783
+* decimalDivide(10.001, 20) // => 0.50005
+* ```
+*/
+function decimalDivide(a, b, precision) {
+	if (b === 0) throw new Error("Division by zero is not allowed");
+	const multiplier = 10 ** Math.max(getDecimalPlaces(a), getDecimalPlaces(b));
+	const result = toInteger(a, multiplier) / toInteger(b, multiplier);
+	if (!isUndefined(precision)) {
+		if (!Number.isInteger(precision) || precision < 0) throw new TypeError("precision must be a non-negative integer");
+		const factor = 10 ** precision;
+		return Math.round(result * factor) / factor;
+	}
+	return result;
+}
+/** @internal */
+function getDecimalPlaces(num) {
+	const match = String(num).match(/(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/);
+	const decimals = (match[1] || "").length;
+	const exponent = Number.parseInt(match[2] || "0", 10);
+	return Math.max(0, decimals - exponent);
+}
+/** @internal */
+function toInteger(num, multiplier) {
+	const product = num * multiplier;
+	if (!Number.isFinite(product) || Math.abs(product) > Number.MAX_SAFE_INTEGER) return NaN;
+	return Math.round(product);
+}
+//#endregion
+//#region src/string/capitalize.ts
+/**
+* First letter uppercase, other lowercase
+*
+* 首字母大写，其余小写
+*
+* @category String
+*
+* @param s - The string to capitalize. 要首字母大写的字符串
+* @returns The capitalized string. 首字母大写的字符串
+*
+* @example
+* ```ts
+* capitalize('hello') // 'Hello'
+* capitalize('WORLD') // 'World'
+* ```
+*/
+function capitalize(s) {
+	if (!s) return s;
+	const firstCodePoint = s.codePointAt(0);
+	const firstCharLen = firstCodePoint > 65535 ? 2 : 1;
+	return String.fromCodePoint(firstCodePoint).toUpperCase() + s.slice(firstCharLen).toLowerCase();
+}
+//#endregion
+//#region src/string/words.ts
+/**
+* This pattern matches sequences of characters in a string, considering the following cases:
+* - Sequences of two or more uppercase letters followed by an uppercase letter and lowercase letters or digits (for acronyms)
+* - Sequences of one uppercase letter optionally followed by lowercase letters and digits
+* - Single uppercase letters
+* - Sequences of digits
+* - Emojis and other Unicode characters
+*
+* The resulting match can be used to convert camelCase, snake_case, kebab-case,
+* and other mixed formats into a consistent format like snake case.
+* It also supports emojis and other Unicode characters.
+*
+* 这个模式匹配字符串中的字符序列，考虑以下情况:
+* - 两个或更多大写字母后跟着大写字母和小写字母或数字的序列（用于缩写）
+* - 一个大写字母可选地后跟着小写字母和数字的序列
+* - 单个大写字母
+* - 数字的序列
+* - Emoji 和其他 Unicode 字符
+*
+* 匹配结果可用于将驼峰式、蛇形、短横线式及其他混合格式转换为统一的格式，
+* 如蛇形命名法。同时支持表情符号及其他 Unicode 字符。
+*
+* @category String
+*
+* @example
+* ```ts
+* const matched = 'caseCaseHTMLResponse🚀'.match(CASE_SPLIT_PATTERN)
+* // ['case', 'Case', 'HTML', 'Response', '🚀']
+* ```
+*
+* @internal
+*/
+const CASE_SPLIT_PATTERN = /\p{Lu}?\p{Ll}+|\d+|\p{Lu}+(?!\p{Ll})|[\p{Emoji_Presentation}\p{Extended_Pictographic}]|\p{L}+/gu;
+/**
+* Split string into as words array
+*
+* 将字符串拆分为单词数组
+*
+* @category String
+*
+* @param str - the string to split 要拆分的字符串
+* @returns an array of words 单词数组
+*
+* @example
+* ```ts
+* words('helloWorld🚀') // => ['hello', 'world', '🚀']
+* ```
+*/
+function words(str) {
+	if (!str) return [];
+	str = str.normalize("NFC");
+	return str.match(CASE_SPLIT_PATTERN) ?? [];
+}
+//#endregion
+//#region src/string/camel-case.ts
+/**
+* Convert string to camelCase
+*
+* 将字符串转换为驼峰命名法
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in camelCase. 驼峰命名法格式的字符串
+*
+* @see {@link pascalCase}, {@link snakeCase}, {@link kebabCase}, {@link constantCase} — for other case conversions
+* @see {@link pascalCase}、{@link snakeCase}、{@link kebabCase}、{@link constantCase} — 其他大小写转换
+*
+* @example
+* ```ts
+* camelCase('foo bar') // => fooBar
+* camelCase('foo-bar') // => fooBar
+* ```
+*/
+function camelCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	const [first, ...rest] = parts;
+	return `${first.toLowerCase()}${rest.map((word) => capitalize(word)).join("")}`;
+}
+//#endregion
+//#region src/string/constant-case.ts
+/**
+* Converts a string to constant case
+*
+* 将字符串转换为常量命名法
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in constant case. 常量命名法格式的字符串
+*
+* @example
+* ```ts
+* constantCase('foo bar') // => FOO_BAR
+* constantCase('foo-bar') // => FOO_BAR
+* ```
+*/
+function constantCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => word.toUpperCase()).join("_");
+}
+//#endregion
+//#region src/string/ensure-prefix.ts
+/**
+* Ensure prefix, if str does not start with prefix, it will be added
+*
+* 确保前缀，如果字符串不以前缀开头，则将添加前缀。
+*
+* @category String
+*
+* @param str - The string to check. 要检查的字符串
+* @param prefix - The prefix to ensure. 要确保的前缀
+* @returns The string with the prefix ensured. 确保前缀后的字符串
+*
+* @see {@link ensureSuffix} — for ensuring a suffix
+* @see {@link ensureSuffix} — 确保后缀
+*
+* @example
+* ```ts
+* ensurePrefix('example.com', 'http://') // => http://example.com
+* ensurePrefix('//example.com', '//') // => //example.com
+* ```
+*/
+function ensurePrefix(str, prefix) {
+	if (!prefix) return str;
+	if (str.startsWith(prefix)) return str;
+	return `${prefix}${str}`;
+}
+//#endregion
+//#region src/string/ensure-suffix.ts
+/**
+* Ensure suffix, if str does not end with suffix, it will be added
+*
+* 确保后缀，如果字符串不以该后缀结尾，则将添加该后缀。
+*
+* @category String
+*
+* @param str - The string to check. 要检查的字符串
+* @param suffix - The suffix to ensure. 要确保的后缀
+* @returns The string with the suffix ensured. 确保后缀后的字符串
+*
+* @see {@link ensurePrefix} — for ensuring a prefix
+* @see {@link ensurePrefix} — 确保前缀
+*
+* @example
+* ```ts
+* ensureSuffix('example.com', '.com') // => example.com
+* ensureSuffix('example', '.com') // => example.com
+* ```
+*/
+function ensureSuffix(str, suffix) {
+	if (!suffix) return str;
+	if (str.endsWith(suffix)) return str;
+	return str + suffix;
+}
+//#endregion
+//#region src/string/escape.ts
+const htmlEscapes = {
+	"&": "&amp;",
+	"<": "&lt;",
+	">": "&gt;",
+	"\"": "&quot;",
+	"'": "&#39;",
+	"`": "&#96;"
+};
+const RE_ESCAPE = /[&<>"'`]/g;
+/**
+* Converts the characters "&", "<", ">", '"', and "'" in `str` to their corresponding HTML entities.
+*
+* 将`str`中的字符"&"、"<"、">"、'"'和"'"转换为对应的HTML实体。
+*
+* @category String
+*
+* @param str - The string to escape. 要转义的字符串
+* @returns The escaped string. 转义后的字符串
+*
+* @see {@link unescape} — for the inverse operation
+* @see {@link unescape} — 反向操作
+*
+* @example
+* ```ts
+* escape('<script>alert(1)<\/script>') // => &lt;script&gt;alert(1)&lt;/script&gt;
+* ```
+*/
+function escape(str) {
+	return str.replace(RE_ESCAPE, (match) => htmlEscapes[match]);
+}
+const RE_ESCAPE_REGEXP = /[\\^$.*+?()[\]{}|]/g;
+/**
+* Escapes the RegExp special characters "^", "$", "\\", ".", "*", "+", "?", "(", ")", "[", "]", "{", "}", and "|" in `str`.
+*
+* 转义`str`中的正则表达式特殊字符"^"、"$"、"\\"、"."、"*"、"+"、"?"、"("、")"、"["、"]"、"{"、"}"以及"|"。
+*
+* @category String
+*
+* @param str - The string to escape. 要转义的字符串
+* @returns The escaped string. 转义后的字符串
+*
+* @example
+* ```ts
+* escapeRegExp('[link](https://sub.domain.com/)'); // '\[link\]\(https://sub\.domain\.com/\)'
+* ```
+*/
+function escapeRegExp(str) {
+	return str.replace(RE_ESCAPE_REGEXP, "\\$&");
+}
+const RE_DECIMAL = /^[0-9]+$/;
+const RE_HEX = /^[0-9a-fA-F]+$/;
+const htmlUnescapes = {
+	"&amp;": "&",
+	"&lt;": "<",
+	"&gt;": ">",
+	"&quot;": "\"",
+	"&#39;": "'",
+	"&#96;": "`"
+};
+/**
+* Converts the HTML entities `&amp;`, `&lt;`, `&gt;`, `&quot;`, and `&#39;` in `str` to their corresponding characters.
+* It is the inverse of `escape`.
+*
+* 将`str`中的HTML实体`&amp;`、`&lt;`、`&gt;`、`&quot;`和`&#39;`转换回对应的字符。
+* 此操作是`escape`的逆向过程。
+*
+* @category String
+*
+* @param str - The string to unescape. 要反转义的字符串
+* @returns The unescaped string. 反转义后的字符串
+*
+* @example
+* ```ts
+* unescape('&lt;script&gt;alert(1)&lt;/script&gt;') // => <script>alert(1)<\/script>
+* ```
+*/
+function unescape(str) {
+	let result = "";
+	let i = 0;
+	const len = str.length;
+	while (i < len) {
+		if (str[i] === "&") {
+			const semi = str.indexOf(";", i + 1);
+			if (semi !== -1 && semi - i < 12) {
+				const entity = str.slice(i, semi + 1);
+				const replacement = htmlUnescapes[entity];
+				if (replacement != null) {
+					result += replacement;
+					i = semi + 1;
+					continue;
+				}
+				if (entity[1] === "#") {
+					const content = entity.slice(2, -1);
+					let codePoint = -1;
+					if (content[0] === "x" || content[0] === "X") {
+						const hex = content.slice(1);
+						if (RE_HEX.test(hex)) codePoint = Number.parseInt(hex, 16);
+					} else if (RE_DECIMAL.test(content)) codePoint = Number.parseInt(content, 10);
+					if (codePoint >= 0 && codePoint <= 1114111 && (codePoint < 55296 || codePoint > 57343)) try {
+						result += String.fromCodePoint(codePoint);
+						i = semi + 1;
+						continue;
+					} catch {}
+				}
+			}
+		}
+		result += str[i++];
+	}
+	return result;
+}
+//#endregion
+//#region src/string/indent.ts
+/**
+* Adds indentation to each line of a string
+*
+* 为字符串的每行添加缩进
+*
+* @category String
+*
+* @param str - The string to indent. 要缩进的字符串
+* @param indent - The indentation string. Default is '  ' (two spaces). 缩进字符串，默认为两个空格
+* @returns The indented string. 缩进后的字符串
+*
+* @example
+* ```ts
+* indent('hello\nworld', '  ') // => '  hello\n  world'
+* indent('foo\nbar', '\t') // => '\tfoo\n\tbar'
+* ```
+*/
+function indent(str, indent = "  ") {
+	if (!str) return str;
+	return str.split(/\r?\n/).map((line) => line ? `${indent}${line}` : line).join("\n");
+}
+//#endregion
+//#region src/string/kebab-case.ts
+/**
+* Convert string to kebab-case
+*
+* 将字符串转换为短横线命名法
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in kebab-case. 转换后的短横线命名法字符串
+*
+* @example
+* ```ts
+* kebabCase('a b c') // => a-b-c
+* kebabCase('orderBy') // => order-by
+* ```
+*/
+function kebabCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => word.toLowerCase()).join("-");
+}
+//#endregion
+//#region src/string/lower-case.ts
+/**
+* Convert string to lowercase
+*
+* 将字符串转换为小写
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The lowercase string with words separated by spaces. 转换后的小写字符串，单词之间用空格分隔
+*
+* @example
+* ```ts
+* lowerCase('Hello World') // => 'hello world'
+* lowerCase('HELLO WORLD') // => 'hello world'
+* lowerCase('order-by') // => 'order by'
+* ```
+*/
+function lowerCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => word.toLowerCase()).join(" ");
+}
+//#endregion
+//#region src/string/pascal-case.ts
+/**
+* Converts a string to Pascal case
+*
+* 将字符串转换为大驼峰命名法
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in PascalCase. 转换后的大驼峰命名法字符串
+*
+* @example
+* ```ts
+* pascalCase('foo bar') // => FooBar
+* pascalCase('foo-bar') // => FooBar
+* ```
+*/
+function pascalCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => capitalize(word)).join("");
+}
+//#endregion
+//#region src/string/slugify.ts
+const CONTROL_REG = /[\u0000-\u001F]/g;
+const SPECIAL_REG = /[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]+/g;
+const COMBINING_REG = /\p{Mn}/gu;
+/**
+* Converts a string to a URL-friendly slug
+*
+* 将字符串转换为 URL 友好的 slug
+*
+* @category String
+*
+* @param str - The string to slugify. 要转换的字符串
+* @returns The slugified string. Slug 格式的字符串
+*
+* @example
+* ```ts
+* slugify('Hello World') // => 'hello-world'
+* slugify('foo  bar baz') // => 'foo-bar-baz'
+* slugify('What???') // => 'what'
+* ```
+*/
+function slugify(str) {
+	if (!str) return "";
+	return str.normalize("NFKD").replace(COMBINING_REG, "").replace(CONTROL_REG, "").replace(SPECIAL_REG, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "").replace(/^(\d)/, "_$1").toLowerCase();
+}
+//#endregion
+//#region src/string/snake-case.ts
+/**
+* Convert string to snake_case
+*
+* 将字符串转换为蛇形命名法
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in snake_case. 转换后的蛇形命名法字符串
+*
+* @example
+* ```ts
+* snakeCase('a b c') // => a_b_c
+* snakeCase('orderBy') // => order_by
+* ```
+*/
+function snakeCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => word.toLowerCase()).join("_");
+}
+//#endregion
+//#region src/string/title-case.ts
+/**
+* Converts a string to Title Case (first letter of each word capitalized)
+*
+* 将字符串转换为 Title Case（每个单词的首字母大写）
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The string in Title Case. Title Case 格式的字符串
+*
+* @see {@link capitalize} — for capitalizing only the first letter
+* @see {@link capitalize} — 仅首字母大写
+*
+* @example
+* ```ts
+* titleCase('hello world') // => 'Hello World'
+* titleCase('foo-bar') // => 'Foo Bar'
+* titleCase('fooBarBaz') // => 'Foo Bar Baz'
+* ```
+*/
+function titleCase(str) {
+	if (!str) return "";
+	return words(str).map((word) => capitalize(word)).join(" ");
+}
+//#endregion
+//#region src/string/template.ts
+/**
+* String template interpolation
+*
+* 字符串模板插值，支持 {{variable}} 形式的占位符
+*
+* @category String
+*
+* @param str - The template string. 模板字符串
+* @param values - An object containing values to interpolate. 包含要插值的值对象
+* @param options - Options. 选项
+* @param options.prefix - Prefix for placeholders. Default is '{{'. 占位符前缀，默认为 '{{'
+* @param options.suffix - Suffix for placeholders. Default is '}}'. 占位符后缀，默认为 '}}'
+* @returns The interpolated string. 插值后的字符串
+*
+* @example
+* ```ts
+* template('Hello, {{name}}!', { name: 'World' }) // => 'Hello, World!'
+* template('{{greeting}}, {{name}}', { greeting: 'Hi', name: 'there' }) // => 'Hi, there'
+* template('{{a}} + {{b}} = {{c}}', { a: 1, b: 2, c: 3 }) // => '1 + 2 + 3'
+* ```
+*
+* @example
+* Unclosed / overlapping placeholders are preserved as literal text:
+* ```ts
+* template('{{a hello {{b}}', { b: 'world' }) // => '{{a hello world'
+* template('{{open text', {})                    // => '{{open text'
+* ```
+*
+* @example
+* Custom prefix/suffix:
+* ```ts
+* template('<%name%>', { name: 'World' }, { prefix: '<%', suffix: '%>' }) // => 'World'
+* ```
+*/
+function template(str, values, options = {}) {
+	const { prefix = "{{", suffix = "}}" } = options;
+	if (!prefix || !suffix) return str;
+	let index = str.indexOf(prefix);
+	if (index === -1) return str;
+	const parts = [];
+	let lastIndex = 0;
+	while (index !== -1) {
+		parts.push(str.slice(lastIndex, index));
+		const start = index + prefix.length;
+		const end = str.indexOf(suffix, start);
+		if (end === -1) {
+			parts.push(str.slice(index));
+			return parts.join("");
+		}
+		const key = str.slice(start, end).trim();
+		if (key.includes(prefix)) {
+			parts.push(prefix);
+			lastIndex = index + prefix.length;
+			index = str.indexOf(prefix, lastIndex);
+			continue;
+		}
+		const rawValue = values[key];
+		parts.push(hasOwn(values, key) ? isString(rawValue) ? rawValue : isNil(rawValue) ? "" : String(rawValue) : prefix + key + suffix);
+		lastIndex = end + suffix.length;
+		index = str.indexOf(prefix, lastIndex);
+	}
+	if (lastIndex < str.length) parts.push(str.slice(lastIndex));
+	return parts.join("");
+}
+//#endregion
+//#region src/string/truncate.ts
+/**
+* Truncates a string to a specified length, adding ellipsis if truncated
+*
+* 截断字符串到指定长度，如果被截断则添加省略号
+*
+* @category String
+*
+* @param str - The string to truncate. 要截断的字符串
+* @param length - The maximum length of the result. 结果的最大长度
+* @param omission - The string to use for omission. Default is '...'. 省略符号，默认为 '...'
+* @returns The truncated string. 截断后的字符串
+*
+* @example
+* ```ts
+* truncate('hello world', 5) // => 'he...'
+* truncate('hello world', 8, '~~') // => 'hello ~~'
+* truncate('hi', 10) // => 'hi'
+* ```
+*/
+function truncate(str, length, omission = "...") {
+	if (Number.isNaN(length) || length < 0) return str;
+	const chars = [...str];
+	const omissionChars = [...omission];
+	if (chars.length <= length) return str;
+	if (length <= omissionChars.length) return omissionChars.slice(0, length).join("");
+	return chars.slice(0, length - omissionChars.length).join("") + omission;
+}
+//#endregion
+//#region src/string/upper-case.ts
+/**
+* Convert string to uppercase
+*
+* 将字符串转换为大写
+*
+* @category String
+*
+* @param str - The string to convert. 要转换的字符串
+* @returns The uppercase string with words separated by spaces. 转换后的大写字符串，单词之间用空格分隔
+*
+* @example
+* ```ts
+* upperCase('Hello World') // => 'HELLO WORLD'
+* upperCase('hello world') // => 'HELLO WORLD'
+* upperCase('order-by') // => 'ORDER BY'
+* ```
+*/
+function upperCase(str) {
+	if (!str) return "";
+	const parts = words(str);
+	if (parts.length === 0) return "";
+	return parts.map((word) => word.toUpperCase()).join(" ");
+}
+//#endregion
+//#region src/url/slash.ts
+const RE_SLASH = /\\/g;
+/**
+* Replace all backslashes with forward slashes
+*
+* 将所有反斜杠替换为正斜杠
+*
+* @category URL
+* @example
+* ```ts
+* slash('foo\\bar') // => foo/bar
+* ```
+*/
+function slash(s) {
+	return s.replace(RE_SLASH, "/");
+}
+/**
+* Ensure leading slash, if str does not start with slash, it will be added.
+*
+* 确保前缀，如果字符串不以斜杠开头，则将添加斜杠。
+*
+* @category URL
+*
+* @example
+* ```ts
+* ensureLeadingSlash('foo/bar') // => /foo/bar
+* ```
+*/
+function ensureLeadingSlash(str) {
+	return ensurePrefix(slash(str), "/");
+}
+/**
+* Ensure trailing slash, if str does not end with slash, it will be added
+*
+* 确保后缀，如果字符串不以斜杠结尾，则将添加斜杠
+*
+* @category URL
+* @example
+* ```ts
+* ensureTrailingSlash('/foo/bar') // => /foo/bar/
+* ```
+*/
+function ensureTrailingSlash(str) {
+	return ensureSuffix(slash(str), "/");
+}
+/**
+* Remove leading slash, if str starts with slash, it will be removed.
+*
+* 删除斜杆前缀，如果字符串以斜杠开头，则将删除。
+*
+* @category URL
+*
+* @example
+* ```ts
+* removeLeadingSlash('/foo/bar') // => foo/bar
+* ```
+*/
+function removeLeadingSlash(str) {
+	if (!str) return str;
+	str = slash(str);
+	return str[0] === "/" ? str.slice(1) : str;
+}
+/**
+* Remove trailing slash, if str ends with slash, it will be removed.
+*
+* 删除斜杆后缀，如果字符串以斜杠结尾，则将删除。
+*
+* @category URL
+*
+* @example
+* ```ts
+* removeTrailingSlash('/foo/bar/') // => /foo/bar
+* ```
+*/
+function removeTrailingSlash(str) {
+	if (!str) return str;
+	str = slash(str);
+	return str[str.length - 1] === "/" ? str.slice(0, -1) : str;
+}
+//#endregion
+//#region src/url/combine-urls.ts
+const MULTI_SLASH = /(?<!:)\/+/g;
+/**
+* Combines URLs.
+*
+* 合并 URLs。
+*
+* @category URL
+*
+* @param baseUrl - The base URL. 基础 URL
+* @param urls - The URLs to combine. 要合并的 URL
+*
+* @returns The combined URL. 合并后的 URL
+*
+* @example
+* ```ts
+* combineURLs('http://example.com', 'foo', 'bar') // => http://example.com/foo/bar
+* combineURLs('//example.com', '/foo') // => //example.com/foo
+* combineURLs('/foo', 'bar', 'index.html') // => /foo/bar/index.html
+* ```
+*/
+function combineURLs(baseUrl, ...urls) {
+	if (urls.length === 0) return baseUrl;
+	const url = slash(removeLeadingSlash(urls.join("/"))).replace(MULTI_SLASH, "/");
+	if (!baseUrl) return url;
+	baseUrl = removeTrailingSlash(baseUrl);
+	return `${baseUrl}/${url}`;
+}
+//#endregion
+//#region src/url/is-http.ts
+const RE_HTTP = /^(?:https?:)?\/\//i;
+/**
+* Check if URL is HTTP.
+*
+* 检查 URL 是否为 HTTP。
+*
+* @category URL
+*
+* @param url - The URL to check. 要检查的 URL
+*
+* @returns True if the URL is HTTP, false otherwise. 如果 URL 是 HTTP 则返回 true，否则返回 false
+*
+* @example
+* ```ts
+* isHttp('http://example.com') // true
+* isHttp('https://example.com') // true
+* isHttp('//example.com') // true
+* isHttp('ftp://example.com') // false
+* isHttp('example.com') // false
+* isHttp('mailto:username@example.com') // false
+* ```
+*/
+function isHttp(url) {
+	return RE_HTTP.test(url);
+}
+//#endregion
+//#region src/url/is-url.ts
+/**
+* Check if URL is valid.
+*
+* 检查 URL 是否有效。
+*
+* @category URL
+*
+* @param url - The URL to check. 要检查的 URL
+*
+* @returns True if the URL is valid. 如果 URL 有效则返回 true
+*/
+function isUrl(url) {
+	try {
+		new URL(url);
+		return true;
+	} catch {
+		return false;
+	}
+}
+//#endregion
+//#region src/url/parse-protocol.ts
+const RE_PROTOCOL_MATCH = /^([-+\w]{1,25})(?::?\/\/|:)/i;
+/**
+* Parse protocol from URL.
+*
+* 从 URL 中解析协议。
+*
+* @category URL
+*
+* @example
+* ```ts
+* parseProtocol('http://example.com') // => http
+* parseProtocol('mailto:user@example.com') // => mailto
+* ```
+*/
+function parseProtocol(url) {
+	return RE_PROTOCOL_MATCH.exec(url)?.[1] || "";
+}
+//#endregion
+//#region src/util/assert.ts
+/**
+* Assert utilities
+*
+* 断言工具
+*
+* @module Util
+*/
+/**
+* Asserts that a condition is true.
+*
+* 断言条件为真。
+*
+* @category Util
+*
+* @param condition - The condition to assert. 要断言的条件
+* @param message - The message to display if the condition is false. 如果条件为假时显示的消息
+*
+* @throws {Error} If the condition is false. 如果条件为假
+*
+* @example
+* ```ts
+* assert(true) // no throw
+* assert(false, 'custom message') // throws Error: custom message
+* ```
+*/
+function assert(condition, message) {
+	if (!condition) throw new Error(message || "Assertion failed");
+}
+//#endregion
+//#region src/util/attempt.ts
+/**
+* Attempt to execute a function and return the result or error.
+* Returns a tuple where:
+* - On success: [null, Result] - First element is null, second is the result
+* - On error: [Error, null] - First element is the caught error, second is null
+*
+* **Only applicable to synchronous execution functions**
+*
+* 尝试执行函数并返回结果或错误。返回一个元组，其中：
+* - 成功时：[null, Result] - 第一个元素为 null，第二个为结果
+* - 错误时：[Error, null] - 第一个元素为捕获的错误，第二个为 null
+*
+* **仅适用于同步执行函数**
+*
+* @category Util
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param func - The function to execute. 要执行的函数
+* @param args - The arguments to pass to the function. 要传递给函数的参数
+*
+* @example
+* ```ts
+* const [error, result] = attempt(() => 12) // [null, 12]
+* const [error, result] = attempt(() => { throw new Error('error') }) // [Error, null]
+* ```
+*
+* @example
+* ```ts
+* const add = (a, b) => a + b
+* const [error, result] = attempt(add, 1, 2) // [null, 3]
+* // or
+* const [error, result] = attempt(() => add(1, 2)) // [null, 3]
+* ```
+*/
+function attempt(func, ...args) {
+	try {
+		return [null, func(...args)];
+	} catch (error) {
+		return [isError(error) ? error : new Error(String(error)), null];
+	}
+}
+//#endregion
+//#region src/util/attempt-async.ts
+/**
+* Attempt to execute a function and return the result or error.
+* Returns a Promise that resolves to a tuple where:
+* - On success: [null, Result] - First element is null, second is the result
+* - On error: [Error, null] - First element is the caught error, second is null
+*
+* **Only applicable to asynchronous execution functions**
+*
+* 尝试执行函数并返回结果或错误。返回一个解析为元组的 Promise，其中：
+* - 成功时：[null, Result] - 第一个元素为 null，第二个为结果
+* - 错误时：[Error, null] - 第一个元素为捕获的错误，第二个为 null
+*
+* **仅适用于异步执行函数**
+*
+* @category Util
+*
+* @typeParam T - The type of elements in the array / 数组元素的类型
+*
+* @param func - The asynchronous function to execute. 要执行的异步函数
+* @param args - The arguments to pass to the function. 要传递给函数的参数
+*
+* @example
+* ```ts
+* const [error, result] = await attemptAsync(() => Promise.resolve(12)) // [null, 12]
+* const [error, result] = await attemptAsync(() => { return Promise.reject(new Error('error')) }) // [Error, null]
+* ```
+*
+* @example
+* ```ts
+* const add = (a, b) => Promise.resolve(a + b)
+* const [error, result] = await attemptAsync(add, 1, 2) // [null, 3]
+* // or
+* const [error, result] = await attemptAsync(async() => await add(1, 2)) // [null, 3]
+* ```
+*/
+async function attemptAsync(func, ...args) {
+	try {
+		return [null, await func(...args)];
+	} catch (error) {
+		return [isError(error) ? error : new Error(String(error)), null];
+	}
+}
+//#endregion
+export { AbortError, ArrayIterator, CASE_SPLIT_PATTERN, ObjectIterator, RetryError, Semaphore, TimeoutError, assert, attempt, attemptAsync, camelCase, capitalize, chunk, clamp, clearUndefined, combineURLs, compose, constantCase, count, countBy, createControlledPromise, createEmitter, createPromiseLock, createSingletonPromise, debounce, decimalAdd, decimalDivide, decimalMultiply, decimalSubtract, deepClone, deepEqual, deepFreeze, deepMerge, deepMergeWithArray, degToRad, delay, deleteKey, difference, differenceBy, ensureLeadingSlash, ensurePrefix, ensureSuffix, ensureTrailingSlash, escape, escapeRegExp, filterAsync, findFirstThen, findLastThen, gcd, groupBy, hasOwn, inRange, indent, intersection, intersectionBy, invoke, isArray, isBlob, isBoolean, isBrowser, isBuffer, isDate, isDef, isEmpty, isEmptyObject, isError, isFinite, isFunction, isHttp, isInteger, isIterable, isJSONArray, isJSONObject, isJSONValue, isKeyof, isMap, isNil, isNull, isNumber, isPlainObject, isPrime, isPrimitive, isPromise, isRegexp, isSafeInteger, isSameDay, isSet, isString, isSymbol, isTypedArray, isTypeof, isUndefined, isUrl, isWindow, kebabCase, keyBy, lcm, lerp, limitAsync, lowerCase, mapAsync, mapRange, mean, median, memoize, move, noop, notNullish, notUndefined, objectEntries, objectGet, objectKeys, objectMap, omit, omitBy, once, orderBy, parseProtocol, partition, pascalCase, pick, pickBy, promiseParallel, promiseParallelSettled, radToDeg, random, range, remove, removeBy, removeLeadingSlash, removeTrailingSlash, retry, sample, sampleSize, shallowClone, shuffle, simpleClone, slash, sleep, slugify, snakeCase, sortBy, sum, template, throttle, timeout, timestamp, titleCase, toArray, toError, toFinite, toNumber, toString, toTruthy, truncate, typeOf, unescape, union, unionBy, uniq, uniqBy, uniqWith, upperCase, withTimeout, words };

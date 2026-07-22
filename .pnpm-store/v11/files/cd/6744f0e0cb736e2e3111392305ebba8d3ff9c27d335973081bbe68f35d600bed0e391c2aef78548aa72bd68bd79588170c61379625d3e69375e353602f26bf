@@ -1,0 +1,65 @@
+import * as _unocss_rule_utils from '@unocss/rule-utils';
+export { C as CONTROL_MINI_NO_NEGATIVE, c as colorResolver, a as colorableShadows, d as directionSize, h as hasParseableColor, i as isCSSMathFn, e as isSize, m as makeGlobalStaticRules, p as parseColor, r as resolveBreakpoints, b as resolveVerticalBreakpoints, s as splitShorthand, t as transformXYZ } from './shared/unocss-preset-weapp.52a28a5c.js';
+import { VariantHandlerContext, VariantObject } from '@unocss/core';
+import './shared/unocss-preset-weapp.d9544800.js';
+
+declare function numberWithUnit(str: string): string | undefined;
+declare function auto(str: string): "auto" | undefined;
+declare function rem(str: string): string | undefined;
+declare function remToRpx(str: string): string | undefined;
+declare function rpx(str: string): string | undefined;
+declare function px(str: string): string | undefined;
+declare function number(str: string): number | undefined;
+declare function percent(str: string): string | undefined;
+declare function fraction(str: string): string | undefined;
+declare function bracket(str: string): string | undefined;
+declare function bracketOfColor(str: string): string | undefined;
+declare function bracketOfLength(str: string): string | undefined;
+declare function bracketOfPosition(str: string): string | undefined;
+declare function cssvar(str: string): string | undefined;
+declare function time(str: string): string | undefined;
+declare function degree(str: string): string | undefined;
+declare function global(str: string): string | undefined;
+declare function properties(str: string): string | undefined;
+declare function position(str: string): string | undefined;
+
+declare const handlers_auto: typeof auto;
+declare const handlers_bracket: typeof bracket;
+declare const handlers_bracketOfColor: typeof bracketOfColor;
+declare const handlers_bracketOfLength: typeof bracketOfLength;
+declare const handlers_bracketOfPosition: typeof bracketOfPosition;
+declare const handlers_cssvar: typeof cssvar;
+declare const handlers_degree: typeof degree;
+declare const handlers_fraction: typeof fraction;
+declare const handlers_global: typeof global;
+declare const handlers_number: typeof number;
+declare const handlers_numberWithUnit: typeof numberWithUnit;
+declare const handlers_percent: typeof percent;
+declare const handlers_position: typeof position;
+declare const handlers_properties: typeof properties;
+declare const handlers_px: typeof px;
+declare const handlers_rem: typeof rem;
+declare const handlers_remToRpx: typeof remToRpx;
+declare const handlers_rpx: typeof rpx;
+declare const handlers_time: typeof time;
+declare namespace handlers {
+  export { handlers_auto as auto, handlers_bracket as bracket, handlers_bracketOfColor as bracketOfColor, handlers_bracketOfLength as bracketOfLength, handlers_bracketOfPosition as bracketOfPosition, handlers_cssvar as cssvar, handlers_degree as degree, handlers_fraction as fraction, handlers_global as global, handlers_number as number, handlers_numberWithUnit as numberWithUnit, handlers_percent as percent, handlers_position as position, handlers_properties as properties, handlers_px as px, handlers_rem as rem, handlers_remToRpx as remToRpx, handlers_rpx as rpx, handlers_time as time };
+}
+
+declare const handler: _unocss_rule_utils.ValueHandler<"number" | "auto" | "px" | "position" | "numberWithUnit" | "rem" | "remToRpx" | "rpx" | "percent" | "fraction" | "bracket" | "bracketOfColor" | "bracketOfLength" | "bracketOfPosition" | "cssvar" | "time" | "degree" | "global" | "properties">;
+declare const h: _unocss_rule_utils.ValueHandler<"number" | "auto" | "px" | "position" | "numberWithUnit" | "rem" | "remToRpx" | "rpx" | "percent" | "fraction" | "bracket" | "bracketOfColor" | "bracketOfLength" | "bracketOfPosition" | "cssvar" | "time" | "degree" | "global" | "properties">;
+
+declare const directionMap: Record<string, string[]>;
+declare const insetMap: Record<string, string[]>;
+declare const cornerMap: Record<string, string[]>;
+declare const xyzMap: Record<string, string[]>;
+declare const xyzArray: string[];
+declare const positionMap: Record<string, string>;
+declare const globalKeywords: string[];
+declare const cssMathFnRE: RegExp;
+declare const cssVarFnRE: RegExp;
+
+declare function variantMatcher(name: string, handler: (input: VariantHandlerContext) => Record<string, any>, transformRules?: Record<string, string>): VariantObject;
+declare function variantParentMatcher(name: string, parent: string, transformRules?: Record<string, string>): VariantObject;
+
+export { cornerMap, cssMathFnRE, cssVarFnRE, directionMap, globalKeywords, h, handler, insetMap, positionMap, handlers as valueHandlers, variantMatcher, variantParentMatcher, xyzArray, xyzMap };

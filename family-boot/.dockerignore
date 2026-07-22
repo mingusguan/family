@@ -1,0 +1,13 @@
+target/
+.m2-cache/
+.idea/
+*.iml
+*.log
+logs/
+.history/
+.env
+.env.*
+!.env.example
+docker/
+docs/
+sql/
