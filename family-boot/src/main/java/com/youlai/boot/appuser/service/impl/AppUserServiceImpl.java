@@ -140,7 +140,7 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
         vo.setMobile(user.getMobile());
-        vo.setAvatar(resolveAvatarAccessUrl(user.getAvatar()));
+        vo.setAvatar(getAvatarAccessUrl(user.getAvatar()));
         vo.setStatus(user.getStatus());
         return vo;
     }
@@ -151,12 +151,14 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
         vo.setMobile(user.getMobile());
-        vo.setAvatar(resolveAvatarAccessUrl(user.getAvatar()));
+        vo.setAvatar(getAvatarAccessUrl(user.getAvatar()));
         vo.setCreateTime(user.getCreateTime());
         vo.setUpdateTime(user.getUpdateTime());
         return vo;
     }
-    private String resolveAvatarAccessUrl(String avatar) {
+
+    @Override
+    public String getAvatarAccessUrl(String avatar) {
         // 数据库只保存稳定地址，向客户端响应时为私有 COS 对象动态生成临时访问链接。
         return StrUtil.isBlank(avatar) ? avatar : fileService.getAccessUrl(avatar);
     }

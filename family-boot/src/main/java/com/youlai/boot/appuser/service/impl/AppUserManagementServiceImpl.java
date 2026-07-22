@@ -141,7 +141,7 @@ public class AppUserManagementServiceImpl implements AppUserManagementService {
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
         vo.setMobile(user.getMobile());
-        vo.setAvatar(user.getAvatar());
+        vo.setAvatar(appUserService.getAvatarAccessUrl(user.getAvatar()));
         vo.setStatus(user.getStatus());
         vo.setWechatBound(binding != null);
         vo.setCreateTime(user.getCreateTime());

@@ -28,4 +28,12 @@ public interface AppUserService extends IService<AppUser> {
     UserAuthInfo getAuthInfoByMobile(String mobile);
 
     UserAuthInfo getAuthInfoById(Long userId);
+
+    /**
+     * 获取 APP 用户头像的临时访问地址。
+     *
+     * @param avatar 数据库存储的稳定地址或对象键
+     * @return 可供客户端访问的头像地址
+     */
+    String getAvatarAccessUrl(String avatar);
 }
