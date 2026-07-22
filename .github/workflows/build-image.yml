@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'family-boot/**'
 
 concurrency:
   group: family-production
