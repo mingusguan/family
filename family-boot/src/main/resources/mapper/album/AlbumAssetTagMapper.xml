@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.album.mapper.AlbumAssetTagMapper">
+
+    <!-- 单条 SQL 批量写入资源标签关系，避免循环执行数据库 insert -->
+    <insert id="insertBatch">
+        INSERT INTO app_album_asset_tag (asset_id, tag_id)
+        VALUES
+        <foreach collection="relations" item="item" separator=",">
+            (#{item.assetId}, #{item.tagId})
+        </foreach>
+    </insert>
+
+</mapper>

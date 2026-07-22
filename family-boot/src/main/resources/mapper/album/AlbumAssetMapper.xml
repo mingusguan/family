@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.album.mapper.AlbumAssetMapper">
+
+    <update id="updateGroupBatch">
+        UPDATE app_album_asset
+        SET group_id = #{groupId}, update_time = CURRENT_TIMESTAMP
+        WHERE is_deleted = 0
+          AND id IN
+        <foreach collection="assetIds" item="assetId" open="(" separator="," close=")">
+            #{assetId}
+        </foreach>
+    </update>
+
+</mapper>

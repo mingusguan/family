@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: family-boot
+  config:
+    # 可选加载运行目录下的 .env，并按 properties 格式解析
+    import: "optional:file:./family-boot/.env[.properties]"
+  profiles:
+    active: dev
+  task:
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: family-scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+# 在 banner.txt 中显示项目版本，使用 @project.version@ 从 pom.xml 获取
+project:
+  version: @project.version@
