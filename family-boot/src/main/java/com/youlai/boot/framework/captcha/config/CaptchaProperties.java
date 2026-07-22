@@ -66,7 +66,7 @@ public class CaptchaProperties {
         /**
          * 验证码字符长度，type=算术时，表示运算位数(1:个位数 2:十位数)；type=随机字符时，表示字符个数
          */
-        private int length = 2;
+        private int length = 1;
     }
 
     /**
