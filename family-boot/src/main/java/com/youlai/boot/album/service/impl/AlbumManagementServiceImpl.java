@@ -91,6 +91,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
                         .like(AlbumAsset::getOriginalName, query.getKeyword())
                         .or()
                         .like(AlbumAsset::getDescription, query.getKeyword()))
+                .orderByDesc(AlbumAsset::getCapturedAt)
                 .orderByDesc(AlbumAsset::getCreateTime);
 
         Page<AlbumAsset> entityPage = assetMapper.selectPage(

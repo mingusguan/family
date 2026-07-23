@@ -138,6 +138,10 @@ public final class AlbumModels {
 
         @Min(value = 0, message = "高度不能小于0")
         private Integer height;
+
+        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @Schema(description = "当前资源的拍摄或录制时间")
+        private LocalDateTime capturedAt;
     }
     /** 相册资源保存参数。 */
     @Data

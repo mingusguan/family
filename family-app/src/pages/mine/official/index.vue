@@ -1,7 +1,7 @@
 <template>
   <view class="page page--padding">
     <view class="brand">
-      <image src="/static/images/logo.png" class="brand__logo" mode="aspectFit" />
+      <image src="/static/images/tongyan-logo-flat.png" class="brand__logo" mode="aspectFit" />
       <view class="brand__text">
         <view class="brand__title">有来技术</view>
         <view class="brand__desc">让开源项目更加易用</view>

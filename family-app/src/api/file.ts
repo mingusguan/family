@@ -110,4 +110,6 @@ export interface FileInfo {
   url: string;
   /** 文件临时可访问地址 */
   previewUrl?: string;
+  /** 媒体文件元数据中的拍摄或录制时间 */
+  capturedAt?: string;
 }

@@ -72,6 +72,7 @@ export interface AlbumMomentResourceRequest {
   duration?: number;
   width?: number;
   height?: number;
+  capturedAt?: string;
 }
 
 export interface AlbumTag {

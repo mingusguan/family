@@ -1,7 +1,10 @@
 package com.youlai.boot.file.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+
+import java.time.LocalDateTime;
 
 
 /**
@@ -22,5 +25,9 @@ public class FileInfo {
 
     @Schema(description = "文件临时预览URL")
     private String previewUrl;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "媒体文件中的原始拍摄或录制时间")
+    private LocalDateTime capturedAt;
 
 }

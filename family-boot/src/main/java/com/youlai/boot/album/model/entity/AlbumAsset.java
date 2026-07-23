@@ -64,7 +64,9 @@ public class AlbumAsset extends BaseEntity {
         asset.width = resource.getWidth();
         asset.height = resource.getHeight();
         asset.description = request.getDescription();
-        asset.capturedAt = request.getCapturedAt();
+        // 每个媒体优先保存自身元数据时间，旧客户端未传递时兼容批次级时间。
+        asset.capturedAt = resource.getCapturedAt() == null
+                ? request.getCapturedAt() : resource.getCapturedAt();
         asset.status = 1;
         return asset;
     }

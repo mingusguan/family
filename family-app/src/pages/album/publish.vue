@@ -284,7 +284,7 @@ function choosePhotoOrVideo() {
       count: MAX_MEDIA_COUNT - selectedMedia.value.length,
       mediaType: ["image", "video"],
       sourceType: ["album", "camera"],
-      sizeType: ["compressed"],
+      sizeType: ["original"],
       success: async (result: any) => {
         const files = result.tempFiles || [];
         for (const file of files) await applyPickedMedia(file);
@@ -524,7 +524,7 @@ async function publish() {
       uploadedFiles.push({ media, fileInfo });
     }
 
-    const capturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
+    const fallbackCapturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
     uploadProgress.value = "正在保存";
     await AlbumAPI.createMoment({
       familyId: familyId.value,
@@ -538,10 +538,11 @@ async function publish() {
         duration: media.duration,
         width: media.width,
         height: media.height,
+        capturedAt: fileInfo.capturedAt || fallbackCapturedAt,
       })),
       tagIds: selectedTagIds.value,
       description: description.value.trim() || undefined,
-      capturedAt,
+      capturedAt: fallbackCapturedAt,
     });
     uni.showToast({ title: "成功发布" + uploadedFiles.length + "个文件", icon: "success" });
     Storage.set(ALBUM_NAVIGATION_TARGET_KEY, {

@@ -2,6 +2,7 @@ package com.youlai.boot.file.controller;
 
 import com.youlai.boot.common.result.Result;
 import com.youlai.boot.file.service.FileService;
+import com.youlai.boot.file.service.MediaCaptureTimeExtractor;
 import com.youlai.boot.file.model.FileInfo;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class FileController {
 
     private final FileService fileService;
+    private final MediaCaptureTimeExtractor mediaCaptureTimeExtractor;
 
     @PostMapping
     @Operation(summary = "文件上传")
@@ -40,6 +42,7 @@ public class FileController {
             @RequestPart(value = "file") MultipartFile file
     ) {
         FileInfo fileInfo = fileService.uploadFile(file);
+        fileInfo.setCapturedAt(mediaCaptureTimeExtractor.extract(file).orElse(null));
         return Result.success(fileInfo);
     }
 
