@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** APP 客户端公开注册与登录接口。 */
+/** APP 客户端公开注册与登录接口test。 */
 @Tag(name = "APP账号认证")
 @RestController
 @RequestMapping("/api/v1/auth/app")
