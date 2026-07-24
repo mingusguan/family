@@ -24,7 +24,6 @@
       "layout": "tabbar"
     },
     // #endif
-    // #ifdef MP-WEIXIN
     {
       "path": "pages/index/index",
       "type": "home",
@@ -35,7 +34,36 @@
       },
       "layout": "tabbar"
     },
-    // #endif
+    {
+      "path": "pages/album/category",
+      "type": "page",
+      "name": "album-category",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f3fa",
+        "onReachBottomDistance": 120
+      }
+    },
+    {
+      "path": "pages/album/index",
+      "type": "page",
+      "name": "album",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#f5f3fa"
+      },
+      "layout": "tabbar"
+    },
+    {
+      "path": "pages/album/publish",
+      "type": "page",
+      "name": "album-publish",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f3fa"
+      }
+    },
     {
       "path": "pages/login/index",
       "type": "page",
@@ -46,6 +74,15 @@
       }
     },
     {
+      "path": "pages/menu/index",
+      "type": "page",
+      "name": "menu",
+      "style": {
+        "navigationStyle": "custom"
+      },
+      "layout": "tabbar"
+    },
+    {
       "path": "pages/mine/index",
       "type": "page",
       "name": "mine",
@@ -53,6 +90,24 @@
         "navigationStyle": "custom"
       },
       "layout": "tabbar"
+    },
+    {
+      "path": "pages/plan/index",
+      "type": "page",
+      "name": "plan",
+      "style": {
+        "navigationStyle": "custom"
+      },
+      "layout": "tabbar"
+    },
+    {
+      "path": "pages/register/index",
+      "type": "page",
+      "name": "register",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
     },
     {
       "path": "pages/webview/index",
@@ -79,6 +134,15 @@
     {
       "path": "pages/mine/account/index",
       "type": "page"
+    },
+    {
+      "path": "pages/mine/family/index",
+      "type": "page",
+      "name": "mine-family",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f3fb"
+      }
     },
     {
       "path": "pages/mine/official/index",
@@ -185,6 +249,16 @@
       }
     },
     {
+      "path": "pages/mine/family/detail/index",
+      "type": "page",
+      "name": "family-detail",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f3fb",
+        "enableShareAppMessage": true
+      }
+    },
+    {
       "path": "pages/mine/settings/agreement/index",
       "type": "page",
       "name": "theme",
@@ -223,87 +297,7 @@
       "style": {
         "navigationBarTitleText": "字典数据"
       }
-    },
-    {
-      "path": "pages/album/index",
-      "type": "page",
-      "name": "album",
-      "style": {
-        "navigationStyle": "custom",
-        "enablePullDownRefresh": true,
-        "backgroundColor": "#f5f3fa"
-      },
-      "layout": "tabbar"
-    },
-    {
-      "path": "pages/menu/index",
-      "type": "page",
-      "name": "menu",
-      "style": {
-        "navigationStyle": "custom"
-      },
-      "layout": "tabbar"
-    },
-    {
-      "path": "pages/plan/index",
-      "type": "page",
-      "name": "plan",
-      "style": {
-        "navigationStyle": "custom"
-      },
-      "layout": "tabbar"
-    },
-    {
-      "path": "pages/register/index",
-      "type": "page",
-      "name": "register",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": ""
-      }
-    },
-    {
-      "path": "pages/album/publish",
-      "type": "page",
-      "name": "album-publish",
-      "style": {
-        "navigationStyle": "custom",
-        "backgroundColor": "#f5f3fa"
-      }
-    },
-    {
-      "path": "pages/mine/family/index",
-      "type": "page",
-      "name": "mine-family",
-      "style": {
-        "navigationStyle": "custom",
-        "backgroundColor": "#f5f3fb"
-      }
-    },
-    // #ifdef MP-WEIXIN
-    {
-      "path": "pages/album/category",
-      "type": "page",
-      "name": "album-category",
-      "style": {
-        "navigationStyle": "custom",
-        "backgroundColor": "#f5f3fa",
-        "onReachBottomDistance": 120
-      }
-    },
-    // #endif
-    // #ifdef MP-WEIXIN
-    {
-      "path": "pages/mine/family/detail/index",
-      "type": "page",
-      "name": "family-detail",
-      "style": {
-        "navigationStyle": "custom",
-        "backgroundColor": "#f5f3fb",
-        "enableShareAppMessage": true
-      }
     }
-    // #endif
   ],
   "subPackages": [],
   "tabBar": {

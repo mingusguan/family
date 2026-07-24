@@ -579,6 +579,16 @@ async function publish() {
     setTimeout(() => uni.switchTab({ url: "/pages/album/index" }), 700);
   } catch (error: any) {
     console.error("批量发布家庭时刻失败", error);
+    if (error?.code === "A0740") {
+      uni.showModal({
+        title: "内容未通过安全检测",
+        content: error?.message || "内容可能存在违规信息，请修改或重新选择后再提交",
+        showCancel: false,
+        confirmText: "我知道了",
+      });
+      return;
+    }
+
     uni.showToast({ title: error?.message || "发布失败，请稍后重试", icon: "none" });
   } finally {
     submitting.value = false;

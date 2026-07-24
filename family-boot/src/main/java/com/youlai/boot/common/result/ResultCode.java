@@ -98,6 +98,7 @@ public enum ResultCode implements IResultCode, Serializable {
     /** A07xx：文件处理异常 */
     UPLOAD_FILE_EXCEPTION("A0700", "上传文件异常"),
     DELETE_FILE_EXCEPTION("A0710", "删除文件异常"),
+    CONTENT_SECURITY_REJECTED("A0740", "内容未通过安全检测"),
     
     /** 一级宏观错误码：系统端错误（服务端内部异常/超时/不可用等，需后端排查修复） */
     SYSTEM_ERROR("B0001", "系统执行出错"),

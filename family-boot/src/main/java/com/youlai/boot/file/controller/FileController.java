@@ -1,5 +1,7 @@
 package com.youlai.boot.file.controller;
 
+import cn.hutool.core.util.StrUtil;
+import com.youlai.boot.framework.integration.wxma.service.WxContentSecurityService;
 import com.youlai.boot.common.result.Result;
 import com.youlai.boot.file.service.FileService;
 import com.youlai.boot.file.service.MediaCaptureTimeExtractor;
@@ -28,6 +30,7 @@ public class FileController {
 
     private final FileService fileService;
     private final MediaCaptureTimeExtractor mediaCaptureTimeExtractor;
+    private final WxContentSecurityService wxContentSecurityService;
 
     @PostMapping
     @Operation(summary = "文件上传")
@@ -41,9 +44,23 @@ public class FileController {
             )
             @RequestPart(value = "file") MultipartFile file
     ) {
+        // 图片在写入对象存储前同步完成微信内容安全检测，所有上传入口都会经过此处。
+        if (isImage(file)) {
+            wxContentSecurityService.checkImage(file);
+        }
         FileInfo fileInfo = fileService.uploadFile(file);
         fileInfo.setCapturedAt(mediaCaptureTimeExtractor.extract(file).orElse(null));
         return Result.success(fileInfo);
+    }
+
+    private boolean isImage(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (StrUtil.startWithIgnoreCase(contentType, "image/")) {
+            return true;
+        }
+        String filename = StrUtil.blankToDefault(file.getOriginalFilename(), "").toLowerCase();
+        return filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".png")
+                || filename.endsWith(".gif") || filename.endsWith(".webp") || filename.endsWith(".bmp");
     }
 
     @DeleteMapping

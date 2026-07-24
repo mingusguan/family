@@ -32,6 +32,7 @@ import com.youlai.boot.common.exception.BusinessException;
 import com.youlai.boot.family.service.FamilyService;
 import com.youlai.boot.file.service.FileService;
 import com.youlai.boot.framework.security.util.SecurityUtils;
+import com.youlai.boot.framework.integration.wxma.service.WxContentSecurityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +65,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
     private final AppUserService appUserService;
     private final FileService fileService;
     private final FamilyService familyService;
+    private final WxContentSecurityService wxContentSecurityService;
 
     @Override
     public IPage<AlbumAssetVO> getAssetPage(AlbumAssetQuery query) {
@@ -229,6 +231,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         familyService.ensureCurrentUserMember(request.getFamilyId());
         familyService.ensureAlbumBelongsToFamily(request.getAlbumId(), request.getFamilyId());
         validateTags(request.getTagIds());
+        wxContentSecurityService.checkText(uploaderId, collectPublishedText(request));
         // 同一批次资源共用家庭、相册、标签和描述，统一组装后使用 MyBatis-Plus 批量写入。
         List<AlbumAsset> assets = request.getResources().stream().map(resource -> {
             AlbumAsset asset = AlbumAsset.createMoment(uploaderId, request, resource);
@@ -262,6 +265,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         if (StrUtil.isBlank(name)) {
             throw new BusinessException("标签名称不能为空");
         }
+        wxContentSecurityService.checkText(requireCurrentUserId(), List.of(name));
         AlbumTag existing = tagMapper.selectOne(new LambdaQueryWrapper<AlbumTag>()
                 .eq(AlbumTag::getName, name)
                 .last("LIMIT 1"));
@@ -496,6 +500,21 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         if (tags.size() != distinctIds.size()) {
             throw new BusinessException("部分相册标签不存在");
         }
+    }
+
+    private List<String> collectPublishedText(AlbumMomentCreateRequest request) {
+        List<String> contents = new ArrayList<>();
+        if (StrUtil.isNotBlank(request.getDescription())) {
+            contents.add(request.getDescription());
+        }
+        if (CollectionUtil.isNotEmpty(request.getTagIds())) {
+            // 发布时再次检测已选标签，确保后台改名或历史标签也不能绕过内容安全校验。
+            tagMapper.selectByIds(request.getTagIds()).stream()
+                    .map(AlbumTag::getName)
+                    .filter(StrUtil::isNotBlank)
+                    .forEach(contents::add);
+        }
+        return contents;
     }
 
     private Long resolveMediaGroupId(AlbumMediaTypeEnum mediaType) {
