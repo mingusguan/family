@@ -1,5 +1,0 @@
-'use strict';
-
-require('jsx-ast-utils/elementType');
-require('jsx-ast-utils/propName');
-

@@ -3,27 +3,60 @@
     <el-card class="page-search" shadow="never">
       <el-form ref="queryFormRef" :model="queryParams" :inline="true">
         <el-form-item label="关键字" prop="keyword">
-          <el-input v-model="queryParams.keyword" placeholder="文件名或描述" clearable @keyup.enter="handleQuery" />
+          <el-input
+            v-model="queryParams.keyword"
+            placeholder="文件名或描述"
+            clearable
+            @keyup.enter="handleQuery"
+          />
         </el-form-item>
         <el-form-item label="类型" prop="mediaType">
-          <el-select v-model="queryParams.mediaType" placeholder="全部" clearable style="width: 110px">
+          <el-select
+            v-model="queryParams.mediaType"
+            placeholder="全部"
+            clearable
+            style="width: 110px"
+          >
             <el-option label="图片" value="IMAGE" />
             <el-option label="视频" value="VIDEO" />
             <el-option label="音频" value="AUDIO" />
           </el-select>
         </el-form-item>
         <el-form-item label="上传用户" prop="uploaderId">
-          <el-select v-model="queryParams.uploaderId" placeholder="全部用户" clearable filterable style="width: 170px">
-            <el-option v-for="item in userOptions" :key="item.value" :label="item.label" :value="String(item.value)" />
+          <el-select
+            v-model="queryParams.uploaderId"
+            placeholder="全部用户"
+            clearable
+            filterable
+            style="width: 170px"
+          >
+            <el-option
+              v-for="item in userOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="String(item.value)"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="分组" prop="groupId">
-          <el-select v-model="queryParams.groupId" placeholder="全部" clearable filterable style="width: 150px">
+          <el-select
+            v-model="queryParams.groupId"
+            placeholder="全部"
+            clearable
+            filterable
+            style="width: 150px"
+          >
             <el-option v-for="item in groups" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="标签" prop="tagId">
-          <el-select v-model="queryParams.tagId" placeholder="全部" clearable filterable style="width: 150px">
+          <el-select
+            v-model="queryParams.tagId"
+            placeholder="全部"
+            clearable
+            filterable
+            style="width: 150px"
+          >
             <el-option v-for="item in tags" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
@@ -43,7 +76,14 @@
     <el-card class="page-content" shadow="never">
       <div class="page-toolbar">
         <div class="page-toolbar__left">
-          <el-button v-hasPerm="['album:asset:create']" type="success" icon="plus" @click="openDialog()">新增资源</el-button>
+          <el-button
+            v-hasPerm="['album:asset:create']"
+            type="success"
+            icon="plus"
+            @click="openDialog()"
+          >
+            新增资源
+          </el-button>
           <el-button
             v-hasPerm="['album:asset:delete']"
             type="danger"
@@ -56,7 +96,12 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="tableData.list" border @selection-change="handleSelectionChange">
+      <el-table
+        v-loading="loading"
+        :data="tableData.list"
+        border
+        @selection-change="handleSelectionChange"
+      >
         <el-table-column type="selection" width="48" align="center" />
         <el-table-column label="预览" width="88" align="center">
           <template #default="{ row }">
@@ -75,14 +120,19 @@
               :aria-label="`预览${mediaLabel(row.mediaType)}`"
               @click="openMedia(row.mediaType, row.previewUrl || row.url, row.originalName)"
             >
-              <el-icon :size="28"><VideoPlay v-if="row.mediaType === 'VIDEO'" /><Headset v-else /></el-icon>
+              <el-icon :size="28">
+                <VideoPlay v-if="row.mediaType === 'VIDEO'" />
+                <Headset v-else />
+              </el-icon>
             </el-button>
           </template>
         </el-table-column>
         <el-table-column prop="originalName" label="文件名" min-width="180" show-overflow-tooltip />
         <el-table-column label="类型" width="86" align="center">
           <template #default="{ row }">
-            <el-tag :type="mediaTagType(row.mediaType)">{{ row.mediaTypeLabel || mediaLabel(row.mediaType) }}</el-tag>
+            <el-tag :type="mediaTagType(row.mediaType)">
+              {{ row.mediaTypeLabel || mediaLabel(row.mediaType) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="上传用户" min-width="130">
@@ -93,13 +143,14 @@
         </el-table-column>
         <el-table-column label="标签" min-width="170">
           <template #default="{ row }">
-            <AlbumTagBadge
+            <span
               v-for="tag in row.tags || []"
               :key="tag.id"
-              class="tag-item"
-              :name="tag.name"
-              :color="tag.color"
-            />
+              class="album-tag-badge tag-item"
+              :style="{ '--album-tag-color': tag.color || '#6f60ce' }"
+            >
+              #{{ tag.name }}
+            </span>
             <span v-if="!row.tags?.length" class="text-muted">无</span>
           </template>
         </el-table-column>
@@ -111,14 +162,32 @@
         </el-table-column>
         <el-table-column label="状态" width="76" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? "正常" : "隐藏" }}</el-tag>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? "正常" : "隐藏" }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="上传时间" width="170" />
         <el-table-column fixed="right" label="操作" width="150">
           <template #default="{ row }">
-            <el-button v-hasPerm="['album:asset:update']" type="primary" link icon="edit" @click="openDialog(row.id)">编辑</el-button>
-            <el-button v-hasPerm="['album:asset:delete']" type="danger" link icon="delete" @click="handleDelete(row.id)">删除</el-button>
+            <el-button
+              v-hasPerm="['album:asset:update']"
+              type="primary"
+              link
+              icon="edit"
+              @click="openDialog(row.id)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              v-hasPerm="['album:asset:delete']"
+              type="danger"
+              link
+              icon="delete"
+              @click="handleDelete(row.id)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -143,7 +212,12 @@
                 filterable
                 style="width: 100%"
               >
-                <el-option v-for="item in userOptions" :key="item.value" :label="item.label" :value="String(item.value)" />
+                <el-option
+                  v-for="item in userOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="String(item.value)"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -194,18 +268,31 @@
                     <el-link
                       type="primary"
                       :underline="false"
-                      @click="openMedia(formData.mediaType!, formData.previewUrl || formData.url!, formData.originalName)"
+                      @click="
+                        openMedia(
+                          formData.mediaType!,
+                          formData.previewUrl || formData.url!,
+                          formData.originalName
+                        )
+                      "
                     >
                       {{ formData.originalName }}
                     </el-link>
                     <div class="text-muted">
-                      {{ mediaLabel(formData.mediaType!) }} · {{ formData.mimeType || "未知类型" }} · {{ formatSize(formData.fileSize) }}
-                      <template v-if="formData.width && formData.height"> · {{ formData.width }}×{{ formData.height }}</template>
-                      <template v-if="formData.duration"> · {{ formatDuration(formData.duration) }}</template>
+                      {{ mediaLabel(formData.mediaType!) }} ·
+                      {{ formData.mimeType || "未知类型" }} · {{ formatSize(formData.fileSize) }}
+                      <template v-if="formData.width && formData.height">
+                        · {{ formData.width }}×{{ formData.height }}
+                      </template>
+                      <template v-if="formData.duration">
+                        · {{ formatDuration(formData.duration) }}
+                      </template>
                     </div>
                   </div>
                 </div>
-                <div v-else class="upload-tip">支持图片、视频和音频，最大 50MB；上传后自动识别文件信息。</div>
+                <div v-else class="upload-tip">
+                  支持图片、视频和音频，最大 50MB；上传后自动识别文件信息。
+                </div>
               </div>
             </el-form-item>
           </el-col>
@@ -216,14 +303,31 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="标签" prop="tagIds">
-              <el-select v-model="formData.tagIds" multiple clearable filterable placeholder="请选择" style="width: 100%">
-                <el-option v-for="item in tags" :key="item.id" :label="item.name" :value="item.id" />
+              <el-select
+                v-model="formData.tagIds"
+                multiple
+                clearable
+                filterable
+                placeholder="请选择"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in tags"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="拍摄时间">
-              <el-date-picker v-model="formData.capturedAt" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+              <el-date-picker
+                v-model="formData.capturedAt"
+                type="datetime"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -236,7 +340,13 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="描述">
-              <el-input v-model="formData.description" type="textarea" :rows="3" maxlength="500" show-word-limit />
+              <el-input
+                v-model="formData.description"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -247,7 +357,13 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="previewDialog.visible" :title="previewDialog.title" width="min(760px, 90vw)" append-to-body destroy-on-close>
+    <el-dialog
+      v-model="previewDialog.visible"
+      :title="previewDialog.title"
+      width="min(760px, 90vw)"
+      append-to-body
+      destroy-on-close
+    >
       <div class="media-viewer">
         <el-image
           v-if="previewDialog.mediaType === 'IMAGE'"
@@ -285,13 +401,26 @@
 
 <script setup lang="ts">
 import { Headset, Picture, VideoPlay } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadRawFile, type UploadRequestOptions } from "element-plus";
-import AlbumTagBadge from "@/components/AlbumTagBadge/index.vue";
+import {
+  ElMessage,
+  ElMessageBox,
+  type FormInstance,
+  type FormRules,
+  type UploadRawFile,
+  type UploadRequestOptions,
+} from "element-plus";
 import AlbumAPI from "@/api/album";
 import FileAPI from "@/api/file";
 import AppUserAPI from "@/api/app-user";
 import type { OptionItem } from "@/api/common";
-import type { AlbumAssetForm, AlbumAssetItem, AlbumAssetQuery, AlbumGroupItem, AlbumMediaType, AlbumTagItem } from "@/api/album";
+import type {
+  AlbumAssetForm,
+  AlbumAssetItem,
+  AlbumAssetQuery,
+  AlbumGroupItem,
+  AlbumMediaType,
+  AlbumTagItem,
+} from "@/api/album";
 
 defineOptions({ name: "AlbumAsset" });
 
@@ -308,7 +437,12 @@ const userOptions = ref<OptionItem[]>([]);
 const queryParams = reactive<AlbumAssetQuery>({ pageNum: 1, pageSize: 10 });
 const tableData = reactive({ list: [] as AlbumAssetItem[], total: 0 });
 const dialog = reactive({ visible: false, title: "" });
-const previewDialog = reactive<{ visible: boolean; title: string; mediaType?: AlbumMediaType; url: string }>({
+const previewDialog = reactive<{
+  visible: boolean;
+  title: string;
+  mediaType?: AlbumMediaType;
+  url: string;
+}>({
   visible: false,
   title: "资源预览",
   url: "",
@@ -327,7 +461,11 @@ const rules: FormRules = {
 };
 
 async function loadOptions() {
-  const [groupList, tagList, users] = await Promise.all([AlbumAPI.getGroups(), AlbumAPI.getTags(), AppUserAPI.getOptions()]);
+  const [groupList, tagList, users] = await Promise.all([
+    AlbumAPI.getGroups(),
+    AlbumAPI.getTags(),
+    AppUserAPI.getOptions(),
+  ]);
   groups.value = groupList || [];
   tags.value = tagList || [];
   userOptions.value = users || [];
@@ -385,7 +523,10 @@ function resolveMediaType(file: File): AlbumMediaType | undefined {
   if (file.type.startsWith("audio/")) return "AUDIO";
 }
 
-function readMediaMetadata(file: File, mediaType: AlbumMediaType): Promise<{ width?: number; height?: number; duration?: number }> {
+function readMediaMetadata(
+  file: File,
+  mediaType: AlbumMediaType
+): Promise<{ width?: number; height?: number; duration?: number }> {
   const objectUrl = URL.createObjectURL(file);
   return new Promise((resolve) => {
     if (mediaType === "IMAGE") {
@@ -495,7 +636,9 @@ async function handleSubmit() {
 async function handleDelete(id?: string) {
   const ids = id || selectedIds.value.join(",");
   if (!ids) return;
-  await ElMessageBox.confirm("删除后仅移除相册记录，不会删除COS对象，确认继续？", "删除确认", { type: "warning" });
+  await ElMessageBox.confirm("删除后仅移除相册记录，不会删除COS对象，确认继续？", "删除确认", {
+    type: "warning",
+  });
   await AlbumAPI.deleteAssets(ids);
   ElMessage.success("删除成功");
   fetchData();
@@ -538,19 +681,94 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.media-preview { width: 56px; height: 56px; border-radius: 6px; }
-.tag-item { margin: 2px 4px 2px 0; }
-.text-muted { color: var(--el-text-color-secondary); font-size: 12px; }
-.resource-upload { width: 100%; }
-.uploaded-file { margin-top: 12px; padding: 12px; border: 1px solid var(--el-border-color); border-radius: 6px; background: var(--el-fill-color-lighter); }
-.uploaded-file__preview { display: flex; width: 100%; min-height: 54px; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; border-radius: 6px; background: var(--el-fill-color-dark); }
-.uploaded-media--image { width: 100%; height: 220px; }
-.uploaded-media--video { display: block; width: 100%; max-height: 320px; background: #000; }
-.uploaded-media--audio { width: min(100%, 560px); margin: 12px; }
-.uploaded-file__info { min-width: 0; line-height: 1.7; }
-.media-viewer { display: flex; min-height: 160px; align-items: center; justify-content: center; }
-.media-viewer__image { width: 100%; height: min(65vh, 620px); }
-.media-viewer__video { width: 100%; max-height: 65vh; background: #000; }
-.media-viewer__audio { width: min(100%, 560px); }
-.upload-tip { margin-top: 8px; color: var(--el-text-color-secondary); font-size: 12px; }
+.album-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 8px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--album-tag-color, #6f60ce);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #efecff;
+  background: color-mix(in srgb, var(--album-tag-color, #6f60ce) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--album-tag-color, #6f60ce) 24%, transparent);
+  border-radius: 999px;
+}
+.media-preview {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+}
+.tag-item {
+  margin: 2px 4px 2px 0;
+}
+.text-muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.resource-upload {
+  width: 100%;
+}
+.uploaded-file {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+}
+.uploaded-file__preview {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--el-fill-color-dark);
+}
+.uploaded-media--image {
+  width: 100%;
+  height: 220px;
+}
+.uploaded-media--video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  background: #000;
+}
+.uploaded-media--audio {
+  width: min(100%, 560px);
+  margin: 12px;
+}
+.uploaded-file__info {
+  min-width: 0;
+  line-height: 1.7;
+}
+.media-viewer {
+  display: flex;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+}
+.media-viewer__image {
+  width: 100%;
+  height: min(65vh, 620px);
+}
+.media-viewer__video {
+  width: 100%;
+  max-height: 65vh;
+  background: #000;
+}
+.media-viewer__audio {
+  width: min(100%, 560px);
+}
+.upload-tip {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
 </style>

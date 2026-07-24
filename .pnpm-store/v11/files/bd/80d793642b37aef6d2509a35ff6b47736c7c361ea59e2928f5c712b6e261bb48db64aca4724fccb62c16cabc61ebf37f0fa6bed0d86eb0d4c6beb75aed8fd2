@@ -1,9 +1,0 @@
-interface FlatGitignoreOptions {
-    files?: string | string[];
-}
-interface FlatConfigItem {
-    ignores: string[];
-}
-declare function ignore(options?: FlatGitignoreOptions): FlatConfigItem;
-
-export { type FlatConfigItem, type FlatGitignoreOptions, ignore as default };

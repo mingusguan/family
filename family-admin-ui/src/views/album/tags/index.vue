@@ -3,7 +3,12 @@
     <el-card class="page-search" shadow="never">
       <el-form ref="queryFormRef" :model="queryParams" :inline="true">
         <el-form-item label="关键字" prop="keyword">
-          <el-input v-model="queryParams.keyword" placeholder="标签名称" clearable @keyup.enter="fetchData" />
+          <el-input
+            v-model="queryParams.keyword"
+            placeholder="标签名称"
+            clearable
+            @keyup.enter="fetchData"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="search" @click="fetchData">搜索</el-button>
@@ -15,14 +20,23 @@
     <el-card class="page-content" shadow="never">
       <div class="page-toolbar">
         <div class="page-toolbar__left">
-          <el-button v-hasPerm="['album:tag:create']" type="success" icon="plus" @click="openDialog()">新增标签</el-button>
+          <el-button
+            v-hasPerm="['album:tag:create']"
+            type="success"
+            icon="plus"
+            @click="openDialog()"
+          >
+            新增标签
+          </el-button>
           <el-button
             v-hasPerm="['album:tag:delete']"
             type="danger"
             icon="delete"
             :disabled="selectedIds.length === 0"
             @click="handleDelete()"
-          >批量删除</el-button>
+          >
+            批量删除
+          </el-button>
         </div>
       </div>
 
@@ -30,20 +44,39 @@
         <el-table-column type="selection" width="48" align="center" />
         <el-table-column label="标签" min-width="170">
           <template #default="{ row }">
-            <AlbumTagBadge :name="row.name" :color="row.color" />
+            <span class="album-tag-badge" :style="{ '--album-tag-color': row.color || '#6f60ce' }">
+              #{{ row.name }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="color" label="颜色" width="140">
           <template #default="{ row }">
-            <span v-if="row.color" class="color-dot" :style="{ backgroundColor: row.color }" />{{ row.color || "默认" }}
+            <span v-if="row.color" class="color-dot" :style="{ backgroundColor: row.color }" />
+            {{ row.color || "默认" }}
           </template>
         </el-table-column>
         <el-table-column prop="sort" label="排序" width="90" align="center" />
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column fixed="right" label="操作" width="150">
           <template #default="{ row }">
-            <el-button v-hasPerm="['album:tag:update']" type="primary" link icon="edit" @click="openDialog(row.id)">编辑</el-button>
-            <el-button v-hasPerm="['album:tag:delete']" type="danger" link icon="delete" @click="handleDelete(row.id)">删除</el-button>
+            <el-button
+              v-hasPerm="['album:tag:update']"
+              type="primary"
+              link
+              icon="edit"
+              @click="openDialog(row.id)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              v-hasPerm="['album:tag:delete']"
+              type="danger"
+              link
+              icon="delete"
+              @click="handleDelete(row.id)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -72,7 +105,6 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
-import AlbumTagBadge from "@/components/AlbumTagBadge/index.vue";
 import AlbumAPI from "@/api/album";
 import type { AlbumTagForm, AlbumTagItem } from "@/api/album";
 
@@ -138,7 +170,9 @@ async function handleSubmit() {
 async function handleDelete(id?: string) {
   const ids = id || selectedIds.value.join(",");
   if (!ids) return;
-  await ElMessageBox.confirm("删除标签会同步清理资源关联，确认继续？", "删除确认", { type: "warning" });
+  await ElMessageBox.confirm("删除标签会同步清理资源关联，确认继续？", "删除确认", {
+    type: "warning",
+  });
   await AlbumAPI.deleteTags(ids);
   ElMessage.success("删除成功");
   fetchData();
@@ -148,6 +182,32 @@ onMounted(fetchData);
 </script>
 
 <style scoped>
-.color-dot { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 50%; vertical-align: -1px; }
-.color-input { width: 160px; margin-left: 12px; }
+.album-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 8px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--album-tag-color, #6f60ce);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #efecff;
+  background: color-mix(in srgb, var(--album-tag-color, #6f60ce) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--album-tag-color, #6f60ce) 24%, transparent);
+  border-radius: 999px;
+}
+.color-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+.color-input {
+  width: 160px;
+  margin-left: 12px;
+}
 </style>
