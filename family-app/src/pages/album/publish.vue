@@ -88,8 +88,8 @@
 
     <view class="publish-card">
       <view class="tag-heading">
-        <text class="publish-card__title">添加话题</text>
-        <text class="tag-heading__hint">像抖音话题一样，最多选择 10 个</text>
+        <text class="publish-card__title">添加标签</text>
+        <text class="tag-heading__hint">最多选择 10 个标签</text>
       </view>
 
       <view class="tag-create">
@@ -97,7 +97,7 @@
         <input
           v-model="customTag"
           class="tag-create__input"
-          placeholder="创建自定义话题"
+          placeholder="创建自定义标签"
           :maxlength="30"
           @confirm="createCustomTag"
         />
@@ -110,12 +110,13 @@
           :key="tag.id"
           class="tag-chip"
           :class="{ 'tag-chip--active': selectedTagIds.includes(tag.id) }"
+          :style="getTagColorStyle(tag.color, selectedTagIds.includes(tag.id))"
           @click="toggleTag(tag.id)"
         >
           #{{ tag.name }}
         </view>
       </view>
-      <text v-else class="tag-empty">还没有话题，输入一个名称创建吧</text>
+      <text v-else class="tag-empty">还没有标签，输入一个名称创建吧</text>
     </view>
 
     <view class="publish-footer">
@@ -157,6 +158,7 @@ import FamilyAPI, { type FamilyAlbum } from "@/api/family";
 import FileAPI from "@/api/file";
 import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { Storage } from "@/utils/storage";
+import { getTagColorStyle } from "@/utils/tagColor";
 
 interface SelectedMedia {
   type: AlbumMediaType;
@@ -223,7 +225,7 @@ async function loadTags() {
   try {
     tags.value = await AlbumAPI.listTags();
   } catch (error) {
-    console.error("读取话题失败", error);
+    console.error("读取标签失败", error);
   }
 }
 
@@ -480,19 +482,38 @@ function removeMedia(index: number) {
   // #endif
 }
 
+async function saveAndSelectCustomTag(name: string) {
+  const existing = tags.value.find((item) => item.name === name);
+  if (!existing && selectedTagIds.value.length >= 10) {
+    throw new Error("最多选择10个标签");
+  }
+
+  const tag = existing || (await AlbumAPI.createTag(name));
+  if (!tags.value.some((item) => item.id === tag.id)) tags.value.unshift(tag);
+  if (!selectedTagIds.value.includes(tag.id)) {
+    if (selectedTagIds.value.length >= 10) {
+      throw new Error("最多选择10个标签");
+    }
+    selectedTagIds.value.push(tag.id);
+  }
+  customTag.value = "";
+  return tag;
+}
+
 async function createCustomTag() {
   const name = customTag.value.trim().replace(/^#+/, "");
   if (!name) {
-    uni.showToast({ title: "请输入话题名称", icon: "none" });
+    uni.showToast({ title: "请输入标签名称", icon: "none" });
     return;
   }
+
   try {
-    const tag = await AlbumAPI.createTag(name);
-    if (!tags.value.some((item) => item.id === tag.id)) tags.value.unshift(tag);
-    if (!selectedTagIds.value.includes(tag.id)) selectedTagIds.value.push(tag.id);
-    customTag.value = "";
+    await saveAndSelectCustomTag(name);
   } catch (error: any) {
-    uni.showToast({ title: error?.message || "话题创建失败", icon: "none" });
+    uni.showToast({
+      title: error?.message || "标签创建失败",
+      icon: "none",
+    });
   }
 }
 
@@ -503,7 +524,7 @@ function toggleTag(id: number) {
     return;
   }
   if (selectedTagIds.value.length >= 10) {
-    uni.showToast({ title: "最多选择10个话题", icon: "none" });
+    uni.showToast({ title: "最多选择10个标签", icon: "none" });
     return;
   }
   selectedTagIds.value.push(id);
@@ -513,6 +534,12 @@ async function publish() {
   if (!selectedMedia.value.length || submitting.value) return;
   submitting.value = true;
   try {
+    const pendingTagName = customTag.value.trim().replace(/^#+/, "");
+    if (pendingTagName) {
+      uploadProgress.value = "正在保存标签";
+      await saveAndSelectCustomTag(pendingTagName);
+    }
+
     const uploadedFiles: Array<{
       media: SelectedMedia;
       fileInfo: Awaited<ReturnType<typeof FileAPI.upload>>;
@@ -641,7 +668,6 @@ onLoad((options) => {
   white-space: nowrap;
 }
 .publish-target__action {
-
   flex-shrink: 0;
   font-size: 21rpx;
   color: #8d84a0;

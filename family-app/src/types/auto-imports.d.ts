@@ -47,6 +47,7 @@ declare global {
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
   const getRefreshToken: typeof import('../utils/auth')['getRefreshToken']
+  const getTagColorStyle: typeof import('../utils/tagColor')['getTagColorStyle']
   const getToken: typeof import('../utils/storage')['getToken']
   const getUserInfo: typeof import('../utils/storage')['getUserInfo']
   const guessSerializerType: typeof import('@uni-helper/uni-use')['guessSerializerType']
@@ -266,6 +267,7 @@ declare module 'vue' {
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getRefreshToken: UnwrapRef<typeof import('../utils/auth')['getRefreshToken']>
+    readonly getTagColorStyle: UnwrapRef<typeof import('../utils/tagColor')['getTagColorStyle']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly hasAllPermissions: UnwrapRef<typeof import('../utils/permission')['hasAllPermissions']>
     readonly hasAllRoles: UnwrapRef<typeof import('../utils/permission')['hasAllRoles']>

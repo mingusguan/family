@@ -98,6 +98,63 @@
           </view>
         </view>
 
+        <view class="moment-search">
+          <view class="moment-search__top">
+            <view class="moment-search__input">
+              <wd-icon name="search" size="17" color="#8f879a" />
+              <input
+                v-model="searchKeyword"
+                class="moment-search__field"
+                placeholder="搜索描述或标签"
+                confirm-type="search"
+                :maxlength="100"
+                @confirm="applySearch"
+              />
+              <text v-if="searchKeyword" class="moment-search__clear" @click="clearKeyword">×</text>
+              <view class="moment-search__button" @click="applySearch">搜索</view>
+            </view>
+            <view class="moment-search__category" @click="openCategoryFilter">
+              <wd-icon name="filter" size="20" color="#7567dc" />
+            </view>
+          </view>
+          <view class="moment-date-filter">
+            <view class="moment-date-filter__modes">
+              <view
+                class="moment-date-filter__mode"
+                :class="{ 'moment-date-filter__mode--active': dateSearchMode === 'month' }"
+                @click="setDateSearchMode('month')"
+              >
+                按月
+              </view>
+              <view
+                class="moment-date-filter__mode"
+                :class="{ 'moment-date-filter__mode--active': dateSearchMode === 'day' }"
+                @click="setDateSearchMode('day')"
+              >
+                按日
+              </view>
+            </view>
+            <picker
+              class="moment-date-filter__picker"
+              mode="date"
+              :fields="dateSearchMode"
+              :value="datePickerValue"
+              @change="handleDateChange"
+            >
+              <view
+                class="moment-date-filter__value"
+                :class="{ 'moment-date-filter__value--active': selectedDate }"
+              >
+                <wd-icon name="calendar" size="15" :color="selectedDate ? '#7567dc' : '#8f879a'" />
+                <text>{{ selectedDateLabel }}</text>
+              </view>
+            </picker>
+            <text v-if="selectedDate" class="moment-date-filter__clear" @click="clearDate">
+              清除
+            </text>
+          </view>
+        </view>
+
         <view v-if="momentsLoading && moments.length === 0" class="moment-loading">
           <wd-loading color="#7668de" />
         </view>
@@ -106,45 +163,81 @@
           <view class="moment-empty__visual">
             <wd-icon name="image" size="56rpx" color="#9b91dd" />
           </view>
-          <text class="moment-empty__title">相册还是空的</text>
-          <text class="moment-empty__desc">上传照片、视频或一段声音，留下第一个回忆</text>
-          <wd-button type="primary" round size="small" @click="goPublish">上传内容</wd-button>
+          <text class="moment-empty__title">
+            {{ hasSearchFilters ? "没有找到匹配的回忆" : "相册还是空的" }}
+          </text>
+          <text class="moment-empty__desc">
+            {{
+              hasSearchFilters
+                ? "换个日期、描述或标签再试试"
+                : "上传照片、视频或一段声音，留下第一个回忆"
+            }}
+          </text>
+          <wd-button
+            v-if="hasSearchFilters"
+            type="primary"
+            round
+            size="small"
+            @click="clearSearchFilters"
+          >
+            清除筛选
+          </wd-button>
+          <wd-button v-else type="primary" round size="small" @click="goPublish">
+            上传内容
+          </wd-button>
         </view>
 
         <view v-else class="moment-grid">
           <view v-for="(moment, index) in moments" :key="moment.id" class="moment-card">
-            <image
-              v-if="moment.mediaType === 'IMAGE'"
-              class="moment-card__media"
-              :src="moment.thumbnailPreviewUrl || moment.previewUrl"
-              mode="aspectFill"
-              lazy-load
-              @click="previewImage(index)"
-            />
-            <video
-              v-else-if="moment.mediaType === 'VIDEO'"
-              class="moment-card__media"
-              :src="moment.previewUrl"
-              :poster="moment.thumbnailPreviewUrl"
-              controls
-              object-fit="cover"
-            />
-            <view v-else class="moment-card__audio" @click="playAudio(moment)">
-              <view class="audio-disc">
-                <wd-icon name="play-circle" size="42rpx" color="#ffffff" />
+            <view class="moment-card__visual">
+              <image
+                v-if="moment.mediaType === 'IMAGE'"
+                class="moment-card__media"
+                :src="moment.thumbnailPreviewUrl || moment.previewUrl"
+                mode="aspectFill"
+                lazy-load
+                @click="previewImage(index)"
+              />
+              <video
+                v-else-if="moment.mediaType === 'VIDEO'"
+                class="moment-card__media"
+                :src="moment.previewUrl"
+                :poster="moment.thumbnailPreviewUrl"
+                controls
+                object-fit="cover"
+              />
+              <view v-else class="moment-card__audio" @click="playAudio(moment)">
+                <view class="audio-disc">
+                  <wd-icon name="play-circle" size="42rpx" color="#ffffff" />
+                </view>
+                <text>播放声音</text>
               </view>
-              <text>播放声音</text>
-              <text v-if="moment.duration" class="moment-card__duration">
-                {{ formatDuration(moment.duration) }}
-              </text>
+              <cover-view class="moment-card__media-badge">
+                <cover-view class="moment-card__media-icon">
+                  {{ getMediaIcon(moment.mediaType) }}
+                </cover-view>
+                <cover-view>{{ formatMediaMeta(moment) }}</cover-view>
+              </cover-view>
             </view>
 
             <view class="moment-card__body">
-              <text v-if="moment.description" class="moment-card__description">
+              <text
+                v-if="moment.description"
+                class="moment-card__description"
+                @click="showDescription(moment.description)"
+              >
                 {{ moment.description }}
               </text>
+              <view v-else class="moment-card__description-placeholder" />
               <view v-if="moment.tags?.length" class="moment-card__tags">
-                <text v-for="tag in moment.tags" :key="tag.id">#{{ tag.name }}</text>
+                <text
+                  v-for="tag in moment.tags"
+                  :key="tag.id"
+                  class="moment-card__tag"
+                  :style="getTagColorStyle(tag.color)"
+                >
+                  #{{ tag.name }}
+                </text>
               </view>
               <view class="moment-card__footer">
                 <text>{{ moment.uploaderName || "家庭成员" }}</text>
@@ -173,6 +266,34 @@
         </view>
       </view>
     </template>
+
+    <view
+      v-if="previewImageUrl"
+      class="image-preview"
+      @tap="closeImagePreview"
+      @touchmove.stop.prevent
+    >
+      <image class="image-preview__content" :src="previewImageUrl" mode="aspectFit" @tap.stop />
+      <cover-view class="image-preview__close" @tap.stop="closeImagePreview">×</cover-view>
+    </view>
+
+    <view
+      v-if="activeDescription"
+      class="description-preview"
+      @click="closeDescription"
+      @touchmove.stop.prevent
+    >
+      <view class="description-preview__panel" @click.stop>
+        <view class="description-preview__header">
+          <view class="description-preview__close" @click="closeDescription">
+            <wd-icon name="close" size="30rpx" color="#615a6b" />
+          </view>
+        </view>
+        <scroll-view class="description-preview__content" scroll-y>
+          <text>{{ activeDescription }}</text>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -186,6 +307,7 @@ import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { useNavbar } from "@/composables/useNavbar";
 import { isLoggedIn } from "@/utils/auth";
 import { Storage } from "@/utils/storage";
+import { getTagColorStyle } from "@/utils/tagColor";
 
 const PAGE_SIZE = 12;
 const navbar = useNavbar({ hasTabbar: true });
@@ -200,7 +322,24 @@ const pageLoading = ref(false);
 const momentsLoading = ref(false);
 const initialized = ref(false);
 const mineOnly = ref(false);
+const searchKeyword = ref("");
+const dateSearchMode = ref<"month" | "day">("month");
+const selectedDate = ref("");
+const previewImageUrl = ref("");
+const activeDescription = ref("");
 const isLogged = computed(() => isLoggedIn());
+const hasSearchFilters = computed(() => Boolean(searchKeyword.value.trim() || selectedDate.value));
+const datePickerValue = computed(
+  () =>
+    selectedDate.value ||
+    dayjs().format(dateSearchMode.value === "month" ? "YYYY-MM" : "YYYY-MM-DD")
+);
+const selectedDateLabel = computed(() => {
+  if (!selectedDate.value) return dateSearchMode.value === "month" ? "选择月份" : "选择日期";
+  return dayjs(selectedDate.value).format(
+    dateSearchMode.value === "month" ? "YYYY年MM月" : "YYYY年MM月DD日"
+  );
+});
 const finished = computed(() => initialized.value && moments.value.length >= total.value);
 let audioContext: UniApp.InnerAudioContext | undefined;
 
@@ -263,12 +402,15 @@ async function loadMoments(reset = false) {
   momentsLoading.value = true;
   if (reset) pageNum.value = 1;
   try {
+    const dateRange = getSearchDateRange();
     const result = await AlbumAPI.getMomentPage({
       pageNum: pageNum.value,
       pageSize: PAGE_SIZE,
       familyId: currentFamily.value.id,
       albumId: currentAlbum.value.id,
       mine: mineOnly.value,
+      keyword: searchKeyword.value.trim() || undefined,
+      ...dateRange,
     });
     moments.value = reset ? result.list : moments.value.concat(result.list);
     total.value = result.total;
@@ -349,6 +491,66 @@ function toggleMine() {
   loadMoments(true);
 }
 
+function getSearchDateRange() {
+  if (!selectedDate.value) return {};
+  const selected = dayjs(selectedDate.value);
+  if (dateSearchMode.value === "month") {
+    return {
+      startDate: selected.startOf("month").format("YYYY-MM-DD"),
+      endDate: selected.endOf("month").format("YYYY-MM-DD"),
+    };
+  }
+  const date = selected.format("YYYY-MM-DD");
+  return { startDate: date, endDate: date };
+}
+
+async function applySearch() {
+  if (momentsLoading.value) return;
+  moments.value = [];
+  initialized.value = false;
+  await loadMoments(true);
+}
+
+function setDateSearchMode(mode: "month" | "day") {
+  if (dateSearchMode.value === mode) return;
+  const shouldReload = Boolean(selectedDate.value);
+  dateSearchMode.value = mode;
+  selectedDate.value = "";
+  if (shouldReload) applySearch();
+}
+
+function handleDateChange(event: { detail: { value: string } }) {
+  selectedDate.value = event.detail.value;
+  applySearch();
+}
+
+function clearKeyword() {
+  searchKeyword.value = "";
+  applySearch();
+}
+
+function clearDate() {
+  selectedDate.value = "";
+  applySearch();
+}
+
+function clearSearchFilters() {
+  searchKeyword.value = "";
+  selectedDate.value = "";
+  applySearch();
+}
+
+function openCategoryFilter() {
+  if (!currentFamily.value || !currentAlbum.value) return;
+  uni.navigateTo({
+    url:
+      "/pages/album/category?familyId=" +
+      currentFamily.value.id +
+      "&albumId=" +
+      currentAlbum.value.id,
+  });
+}
+
 function loadMore() {
   if (momentsLoading.value || finished.value) return;
   pageNum.value += 1;
@@ -358,12 +560,20 @@ function loadMore() {
 }
 
 function previewImage(index: number) {
-  const images = moments.value.filter((item) => item.mediaType === "IMAGE");
   const current = moments.value[index];
-  uni.previewImage({
-    current: current.previewUrl,
-    urls: images.map((item) => item.previewUrl),
-  });
+  previewImageUrl.value = current.previewUrl;
+}
+
+function closeImagePreview() {
+  previewImageUrl.value = "";
+}
+
+function showDescription(description: string) {
+  activeDescription.value = description;
+}
+
+function closeDescription() {
+  activeDescription.value = "";
 }
 
 function playAudio(moment: AlbumMoment) {
@@ -380,8 +590,35 @@ function formatDuration(duration: number) {
   return String(minutes).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
 }
 
+function getMediaIcon(mediaType: AlbumMoment["mediaType"]) {
+  const icons: Record<AlbumMoment["mediaType"], string> = {
+    IMAGE: "\u25a7",
+    VIDEO: "\u25b6",
+    AUDIO: "\u266a",
+  };
+  return icons[mediaType];
+}
+
+function formatMediaMeta(moment: AlbumMoment) {
+  if (moment.mediaType === "IMAGE") return formatFileSize(moment.fileSize);
+  return moment.duration != null ? formatDuration(moment.duration) : moment.mediaTypeLabel;
+}
+
+function formatFileSize(fileSize?: number) {
+  if (fileSize == null) return "\u5927\u5c0f\u672a\u77e5";
+  if (fileSize < 1024) return fileSize + " B";
+  const units = ["KB", "MB", "GB"];
+  let value = fileSize / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return value.toFixed(value >= 10 ? 0 : 1) + " " + units[unitIndex];
+}
+
 function formatDate(value: string) {
-  return dayjs(value).format("MM月DD日 HH:mm");
+  return dayjs(value).format("YYYY\u5e74MM\u6708DD\u65e5 HH:mm");
 }
 
 function goLogin() {
@@ -642,6 +879,133 @@ onReachBottom(loadMore);
   padding-top: 42rpx;
 }
 
+.moment-search {
+  padding: 18rpx;
+  margin-bottom: 24rpx;
+  background: #fff;
+  border: 1rpx solid rgb(117 103 220 / 10%);
+  border-radius: 26rpx;
+  box-shadow: 0 10rpx 28rpx rgb(55 43 92 / 6%);
+}
+
+.moment-search__top {
+  display: flex;
+  gap: 16rpx;
+  align-items: stretch;
+}
+
+.moment-search__input {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+  height: 68rpx;
+  padding-left: 18rpx;
+  background: #f7f5fa;
+  flex: 1;
+  min-width: 0;
+  border: 1rpx solid #ece8f2;
+  border-radius: 18rpx;
+}
+
+.moment-search__category {
+  position: relative;
+  display: flex;
+  flex: 0 0 92rpx;
+  align-items: center;
+  justify-content: center;
+  width: 92rpx;
+  border: 1rpx solid rgb(117 103 220 / 18%);
+  border-radius: 24rpx;
+  background: #f2effb;
+}
+
+.moment-search__field {
+  flex: 1;
+  min-width: 0;
+  height: 68rpx;
+  font-size: 23rpx;
+  color: #463f4f;
+}
+
+.moment-search__clear {
+  flex-shrink: 0;
+  padding: 10rpx;
+  font-size: 32rpx;
+  line-height: 1;
+  color: #aaa3b2;
+}
+
+.moment-search__button {
+  flex-shrink: 0;
+  padding: 0 24rpx;
+  font-size: 22rpx;
+  line-height: 68rpx;
+  color: #fff;
+  background: linear-gradient(135deg, #786add, #9a7fe6);
+  border-radius: 0 18rpx 18rpx 0;
+}
+
+.moment-date-filter {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+  margin-top: 16rpx;
+}
+
+.moment-date-filter__modes {
+  display: flex;
+  flex-shrink: 0;
+  padding: 4rpx;
+  background: #f1eef7;
+  border-radius: 14rpx;
+}
+
+.moment-date-filter__mode {
+  padding: 9rpx 15rpx;
+  font-size: 20rpx;
+  color: #8f879a;
+  border-radius: 11rpx;
+}
+
+.moment-date-filter__mode--active {
+  color: #6f60ce;
+  background: #fff;
+  box-shadow: 0 3rpx 10rpx rgb(76 59 132 / 10%);
+}
+
+.moment-date-filter__picker {
+  flex: 1;
+  min-width: 0;
+}
+
+.moment-date-filter__value {
+  display: flex;
+  gap: 8rpx;
+  align-items: center;
+  padding: 10rpx 14rpx;
+  overflow: hidden;
+  font-size: 20rpx;
+  color: #8f879a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #f7f5fa;
+  border: 1rpx solid #ece8f2;
+  border-radius: 14rpx;
+}
+
+.moment-date-filter__value--active {
+  color: #6f60ce;
+  background: #f1eeff;
+  border-color: rgb(117 103 220 / 25%);
+}
+
+.moment-date-filter__clear {
+  flex-shrink: 0;
+  padding: 8rpx 4rpx;
+  font-size: 20rpx;
+  color: #8d7ee3;
+}
+
 .moment-loading {
   display: flex;
   justify-content: center;
@@ -678,6 +1042,13 @@ onReachBottom(loadMore);
   box-shadow: 0 12rpx 32rpx rgb(55 43 92 / 8%);
 }
 
+.moment-card__visual {
+  position: relative;
+  width: 100%;
+  height: 270rpx;
+  overflow: hidden;
+}
+
 .moment-card__media,
 .moment-card__audio {
   width: 100%;
@@ -695,6 +1066,30 @@ onReachBottom(loadMore);
   background: linear-gradient(145deg, #796bdd, #bc78bd);
 }
 
+.moment-card__media-badge {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  z-index: 2;
+  display: flex;
+  gap: 7rpx;
+  align-items: center;
+  height: 38rpx;
+  padding: 0 12rpx;
+  font-size: 18rpx;
+  line-height: 38rpx;
+  color: #fff;
+  background: rgb(24 20 35 / 68%);
+  backdrop-filter: blur(8rpx);
+  border: 1rpx solid rgb(255 255 255 / 22%);
+  border-radius: 999rpx;
+}
+
+.moment-card__media-icon {
+  font-size: 20rpx;
+  line-height: 1;
+}
+
 .audio-disc {
   display: flex;
   align-items: center;
@@ -706,23 +1101,23 @@ onReachBottom(loadMore);
   border-radius: 50%;
 }
 
-.moment-card__duration {
-  font-size: 19rpx;
-  opacity: 0.72;
-}
-
 .moment-card__body {
   padding: 18rpx;
 }
 
 .moment-card__description {
   display: -webkit-box;
+  height: 69rpx;
   overflow: hidden;
   font-size: 23rpx;
   line-height: 1.5;
   color: #46404f;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.moment-card__description-placeholder {
+  height: 69rpx;
 }
 
 .moment-card__tags {
@@ -734,12 +1129,123 @@ onReachBottom(loadMore);
   color: #796bdd;
 }
 
+.moment-card__tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5rpx 10rpx;
+  overflow: hidden;
+  font-size: 18rpx;
+  color: #6f60ce;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #efecff;
+  border: 1rpx solid transparent;
+  border-radius: 999rpx;
+}
+
 .moment-card__footer {
   display: flex;
   justify-content: space-between;
   margin-top: 14rpx;
   font-size: 18rpx;
   color: #a09aa8;
+}
+
+.moment-card__footer > text:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moment-card__footer > text:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 96%);
+}
+
+.image-preview__content {
+  width: 100%;
+  height: 100%;
+}
+
+.image-preview__close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 184rpx);
+  right: 24rpx;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  font-size: 48rpx;
+  font-weight: 300;
+  line-height: 60rpx;
+  color: #fff;
+  background: rgb(35 35 42 / 78%);
+  border: 1rpx solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  box-shadow: 0 8rpx 24rpx rgb(0 0 0 / 28%);
+}
+
+.description-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  background: rgb(24 20 35 / 48%);
+  backdrop-filter: blur(6rpx);
+}
+
+.description-preview__panel {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 62vh;
+  padding: 28rpx;
+  background: #fff;
+  border: 1rpx solid rgb(124 111 246 / 15%);
+  border-radius: 28rpx;
+  box-shadow: 0 24rpx 70rpx rgb(45 34 76 / 24%);
+}
+
+.description-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 10rpx;
+}
+
+.description-preview__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52rpx;
+  height: 52rpx;
+  background: #f3f0f7;
+  border-radius: 50%;
+}
+
+.description-preview__content {
+  max-height: 46vh;
+  font-size: 25rpx;
+  line-height: 1.75;
+  color: #514a59;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .load-more {
@@ -754,8 +1260,8 @@ onReachBottom(loadMore);
   right: 28rpx;
   bottom: calc(var(--window-bottom) + 146rpx);
   z-index: 20;
-  display: flex;
   box-sizing: border-box;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 76rpx;
@@ -767,7 +1273,9 @@ onReachBottom(loadMore);
   box-shadow:
     0 14rpx 32rpx rgb(88 67 184 / 28%),
     0 3rpx 8rpx rgb(69 50 146 / 16%);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .publish-fab--pressed {
@@ -785,5 +1293,4 @@ onReachBottom(loadMore);
   border: 1rpx solid rgb(255 255 255 / 24%);
   border-radius: 50%;
 }
-
 </style>

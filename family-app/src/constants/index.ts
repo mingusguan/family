@@ -9,6 +9,7 @@ export const REFRESH_TOKEN_KEY = "refresh_token";
 // 📊 用户缓存相关
 export const USER_INFO_KEY = "user_info";
 export const ALBUM_NAVIGATION_TARGET_KEY = "album_navigation_target";
+export const ALBUM_CATEGORY_FILTER_KEY = "album_category_filter";
 export const PENDING_FAMILY_INVITE_KEY = "pending_family_invite";
 
 // 🎨 主题相关

@@ -58,15 +58,15 @@ public class AlbumAppController {
         return Result.judge(albumManagementService.saveMoment(request));
     }
 
-    /** 获取可选择的话题标签。 */
-    @Operation(summary = "话题标签列表")
+    /** 获取可选择的相册标签。 */
+    @Operation(summary = "相册标签列表")
     @GetMapping("/tags")
     public Result<List<AlbumTagVO>> listTags(@RequestParam(required = false) String keyword) {
         return Result.success(albumManagementService.listTags(keyword));
     }
 
-    /** 创建或取得同名话题标签。 */
-    @Operation(summary = "创建自定义话题标签")
+    /** 创建或取得同名相册标签。 */
+    @Operation(summary = "创建自定义相册标签")
     @PostMapping("/tags")
     @RepeatSubmit
     public Result<AlbumTagVO> createTag(@Valid @RequestBody AlbumTagCreateRequest request) {
