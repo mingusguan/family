@@ -36,6 +36,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,23 +67,21 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
     @Override
     public IPage<AlbumAssetVO> getAssetPage(AlbumAssetQuery query) {
-        List<Long> taggedAssetIds = null;
-        if (query.getTagId() != null) {
-            taggedAssetIds = assetTagMapper.selectList(
-                            new LambdaQueryWrapper<AlbumAssetTag>()
-                                    .eq(AlbumAssetTag::getTagId, query.getTagId())
-                                    .select(AlbumAssetTag::getAssetId)
-                    ).stream()
-                    .map(AlbumAssetTag::getAssetId)
-                    .distinct()
-                    .toList();
-            if (taggedAssetIds.isEmpty()) {
-                return emptyAssetPage(query);
-            }
+        List<Long> taggedAssetIds = resolveAssetIdsByTagId(query.getTagId());
+        if (query.getTagId() != null && taggedAssetIds.isEmpty()) {
+            return emptyAssetPage(query);
         }
+
+        String contentKeyword = StrUtil.trim(query.getContentKeyword());
+        List<Long> contentTagAssetIds = resolveAssetIdsByTagKeyword(contentKeyword);
+        List<YearMonth> monthFilters = parseMonthFilters(query.getMonths());
+        validateDateRange(query);
+        LocalDateTime startAt = query.getStartDate() == null ? null : query.getStartDate().atStartOfDay();
+        LocalDateTime endAt = query.getEndDate() == null ? null : query.getEndDate().plusDays(1).atStartOfDay();
 
         LambdaQueryWrapper<AlbumAsset> wrapper = new LambdaQueryWrapper<AlbumAsset>()
                 .eq(query.getMediaType() != null, AlbumAsset::getMediaType, query.getMediaType())
+                .in(CollectionUtil.isNotEmpty(query.getMediaTypes()), AlbumAsset::getMediaType, query.getMediaTypes())
                 .eq(query.getUploaderId() != null, AlbumAsset::getUploaderId, query.getUploaderId())
                 .eq(query.getFamilyId() != null, AlbumAsset::getFamilyId, query.getFamilyId())
                 .eq(query.getAlbumId() != null, AlbumAsset::getAlbumId, query.getAlbumId())
@@ -91,6 +92,34 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
                         .like(AlbumAsset::getOriginalName, query.getKeyword())
                         .or()
                         .like(AlbumAsset::getDescription, query.getKeyword()))
+                .and(StrUtil.isNotBlank(contentKeyword), condition -> {
+                    condition.like(AlbumAsset::getDescription, contentKeyword);
+                    if (CollectionUtil.isNotEmpty(contentTagAssetIds)) {
+                        condition.or().in(AlbumAsset::getId, contentTagAssetIds);
+                    }
+                })
+                .and(startAt != null, condition -> condition
+                        .ge(AlbumAsset::getCapturedAt, startAt)
+                        .lt(AlbumAsset::getCapturedAt, endAt)
+                        .or(fallback -> fallback
+                                .isNull(AlbumAsset::getCapturedAt)
+                                .ge(AlbumAsset::getCreateTime, startAt)
+                                .lt(AlbumAsset::getCreateTime, endAt)))
+                .and(CollectionUtil.isNotEmpty(monthFilters), monthConditions -> {
+                    for (int index = 0; index < monthFilters.size(); index++) {
+                        YearMonth month = monthFilters.get(index);
+                        LocalDateTime monthStart = month.atDay(1).atStartOfDay();
+                        LocalDateTime monthEnd = month.plusMonths(1).atDay(1).atStartOfDay();
+                        monthConditions.or(index > 0).nested(condition -> condition
+                                .ge(AlbumAsset::getCapturedAt, monthStart)
+                                .lt(AlbumAsset::getCapturedAt, monthEnd)
+                                .or(fallback -> fallback
+                                        .isNull(AlbumAsset::getCapturedAt)
+                                        .ge(AlbumAsset::getCreateTime, monthStart)
+                                        .lt(AlbumAsset::getCreateTime, monthEnd)));
+                    }
+                })
+                .orderByDesc(AlbumAsset::getCapturedAt)
                 .orderByDesc(AlbumAsset::getCreateTime);
 
         Page<AlbumAsset> entityPage = assetMapper.selectPage(
@@ -99,21 +128,97 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         );
         return assembleAssetPage(entityPage);
     }
+
     @Override
     public IPage<AlbumAssetVO> getMomentPage(AlbumMomentQuery query) {
         familyService.ensureCurrentUserMember(query.getFamilyId());
         familyService.ensureAlbumBelongsToFamily(query.getAlbumId(), query.getFamilyId());
+
         AlbumAssetQuery assetQuery = new AlbumAssetQuery();
         assetQuery.setPageNum(query.getPageNum());
         assetQuery.setPageSize(query.getPageSize());
         assetQuery.setFamilyId(query.getFamilyId());
         assetQuery.setAlbumId(query.getAlbumId());
         assetQuery.setStatus(1);
+        assetQuery.setContentKeyword(normalizeContentKeyword(query.getKeyword()));
+        assetQuery.setStartDate(query.getStartDate());
+        assetQuery.setEndDate(query.getEndDate());
+        assetQuery.setMonths(query.getMonths());
+        assetQuery.setMediaTypes(query.getMediaTypes());
         if (Boolean.TRUE.equals(query.getMine())) {
             assetQuery.setUploaderId(requireCurrentUserId());
         }
         // 客户端只读取当前家庭相册中状态正常的资源，后台隐藏后会立即从 APP 消失。
         return getAssetPage(assetQuery);
+    }
+
+    private List<Long> resolveAssetIdsByTagId(Long tagId) {
+        if (tagId == null) {
+            return Collections.emptyList();
+        }
+        return assetTagMapper.selectList(
+                        new LambdaQueryWrapper<AlbumAssetTag>()
+                                .eq(AlbumAssetTag::getTagId, tagId)
+                                .select(AlbumAssetTag::getAssetId)
+                ).stream()
+                .map(AlbumAssetTag::getAssetId)
+                .distinct()
+                .toList();
+    }
+
+    private List<Long> resolveAssetIdsByTagKeyword(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return Collections.emptyList();
+        }
+        List<Long> tagIds = tagMapper.selectList(
+                        new LambdaQueryWrapper<AlbumTag>()
+                                .like(AlbumTag::getName, keyword)
+                                .select(AlbumTag::getId)
+                ).stream()
+                .map(AlbumTag::getId)
+                .toList();
+        if (tagIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // 标签和资源分表查询后一次性收集资源 ID，避免列表搜索引入多表 Join。
+        return assetTagMapper.selectList(
+                        new LambdaQueryWrapper<AlbumAssetTag>()
+                                .in(AlbumAssetTag::getTagId, tagIds)
+                                .select(AlbumAssetTag::getAssetId)
+                ).stream()
+                .map(AlbumAssetTag::getAssetId)
+                .distinct()
+                .toList();
+    }
+
+    private List<YearMonth> parseMonthFilters(List<String> months) {
+        if (CollectionUtil.isEmpty(months)) {
+            return Collections.emptyList();
+        }
+        try {
+            return months.stream()
+                    .filter(StrUtil::isNotBlank)
+                    .map(String::trim)
+                    .map(YearMonth::parse)
+                    .distinct()
+                    .toList();
+        } catch (DateTimeParseException exception) {
+            throw new BusinessException("年月格式必须为yyyy-MM");
+        }
+    }
+
+    private void validateDateRange(AlbumAssetQuery query) {
+        if ((query.getStartDate() == null) != (query.getEndDate() == null)) {
+            throw new BusinessException("查询开始日期和结束日期必须同时填写");
+        }
+        if (query.getStartDate() != null && query.getStartDate().isAfter(query.getEndDate())) {
+            throw new BusinessException("查询开始日期不能晚于结束日期");
+        }
+    }
+
+    private String normalizeContentKeyword(String keyword) {
+        String normalized = StrUtil.trim(keyword);
+        return StrUtil.isBlank(normalized) ? null : normalized.replaceFirst("^#+", "");
     }
 
     @Override

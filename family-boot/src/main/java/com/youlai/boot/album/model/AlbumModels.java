@@ -11,10 +11,13 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,8 +38,25 @@ public final class AlbumModels {
         @Schema(description = "文件名或描述关键字")
         private String keyword;
 
+        @Schema(description = "描述或标签名称关键字")
+        private String contentKeyword;
+
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        @Schema(description = "查询开始日期")
+        private LocalDate startDate;
+
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        @Schema(description = "查询结束日期")
+        private LocalDate endDate;
+
         @Schema(description = "资源类型")
         private AlbumMediaTypeEnum mediaType;
+
+        @Schema(description = "资源类型集合")
+        private List<AlbumMediaTypeEnum> mediaTypes;
+
+        @Schema(description = "年月集合，格式为yyyy-MM")
+        private List<String> months;
 
         @Schema(description = "上传用户ID")
         private Long uploaderId;
@@ -65,6 +85,26 @@ public final class AlbumModels {
 
         @Schema(description = "是否只查看当前用户上传的内容")
         private Boolean mine = false;
+
+        @Size(max = 100, message = "搜索关键字不能超过100个字符")
+        @Schema(description = "描述或标签名称关键字")
+        private String keyword;
+
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        @Schema(description = "查询开始日期")
+        private LocalDate startDate;
+
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        @Schema(description = "查询结束日期")
+        private LocalDate endDate;
+
+        @Size(max = 60, message = "最多选择60个月份")
+        @Schema(description = "年月集合，格式为yyyy-MM")
+        private List<@Pattern(regexp = "\\d{4}-(0[1-9]|1[0-2])", message = "年月格式必须为yyyy-MM") String> months;
+
+        @Size(max = 3, message = "媒体类型最多选择3项")
+        @Schema(description = "媒体类型集合")
+        private List<AlbumMediaTypeEnum> mediaTypes;
 
         @NotNull(message = "请选择家庭")
         private Long familyId;
@@ -138,6 +178,10 @@ public final class AlbumModels {
 
         @Min(value = 0, message = "高度不能小于0")
         private Integer height;
+
+        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @Schema(description = "当前资源的拍摄或录制时间")
+        private LocalDateTime capturedAt;
     }
     /** 相册资源保存参数。 */
     @Data
@@ -260,7 +304,7 @@ public final class AlbumModels {
         private Integer sort = 0;
     }
 
-    /** APP 自定义话题标签参数。 */
+    /** APP 自定义相册标签参数。 */
     @Data
     public static class AlbumTagCreateRequest {
         @NotBlank(message = "标签名称不能为空")

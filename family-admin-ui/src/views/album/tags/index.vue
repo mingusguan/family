@@ -30,7 +30,7 @@
         <el-table-column type="selection" width="48" align="center" />
         <el-table-column label="标签" min-width="170">
           <template #default="{ row }">
-            <el-tag :color="row.color || undefined" effect="plain">{{ row.name }}</el-tag>
+            <AlbumTagBadge :name="row.name" :color="row.color" />
           </template>
         </el-table-column>
         <el-table-column prop="color" label="颜色" width="140">
@@ -72,6 +72,7 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
+import AlbumTagBadge from "@/components/AlbumTagBadge/index.vue";
 import AlbumAPI from "@/api/album";
 import type { AlbumTagForm, AlbumTagItem } from "@/api/album";
 

@@ -269,6 +269,18 @@
     },
     // #ifdef MP-WEIXIN
     {
+      "path": "pages/album/category",
+      "type": "page",
+      "name": "album-category",
+      "style": {
+        "navigationStyle": "custom",
+        "backgroundColor": "#f5f3fa",
+        "onReachBottomDistance": 120
+      }
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
       "path": "pages/mine/family/detail/index",
       "type": "page",
       "name": "family-detail",

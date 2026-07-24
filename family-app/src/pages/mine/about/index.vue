@@ -2,7 +2,7 @@
   <view class="page page--padding">
     <wd-card>
       <view class="about__header">
-        <image class="about__logo" src="/static/logo.png" mode="aspectFit" />
+        <image class="about__logo" src="/static/images/tongyan-logo-flat.png" mode="aspectFit" />
         <view class="about__info">
           <text class="about__app-title">同檐时光</text>
           <text class="about__app-version">版本 {{ version }}</text>

@@ -42,11 +42,15 @@
   },
   "quickapp": {},
   "mp-weixin": {
-    "appid": "wx99a151dc43d2637b",
+    "appid": "wxa9635e4e0d223d98",
+    "lazyCodeLoading": "requiredComponents",
     "setting": {
       "urlCheck": false,
+      "minified": true,
+      "minifyWXML": true,
+      "minifyWXSS": true,
       "ignoreDevUnusedFiles": false,
-      "ignoreUploadUnusedFiles": false
+      "ignoreUploadUnusedFiles": true
     },
     "usingComponents": true
   },

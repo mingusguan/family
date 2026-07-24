@@ -4,10 +4,15 @@ const ALBUM_BASE_URL = "/api/v1/app/album";
 
 const AlbumAPI = {
   getMomentPage(query: AlbumMomentQuery) {
+    const data = Object.fromEntries(
+      Object.entries(query).filter(
+        ([, value]) => value !== undefined && value !== null && value !== ""
+      )
+    ) as unknown as AlbumMomentQuery;
     return request<PageResult<AlbumMoment>>({
       url: ALBUM_BASE_URL + "/moments",
       method: "GET",
-      data: query,
+      data,
     });
   },
 
@@ -51,6 +56,11 @@ export interface AlbumMomentQuery extends PageQuery {
   familyId: number;
   albumId: number;
   mine?: boolean;
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
+  months?: string;
+  mediaTypes?: string;
 }
 
 export interface AlbumMomentCreateRequest {
@@ -72,6 +82,7 @@ export interface AlbumMomentResourceRequest {
   duration?: number;
   width?: number;
   height?: number;
+  capturedAt?: string;
 }
 
 export interface AlbumTag {

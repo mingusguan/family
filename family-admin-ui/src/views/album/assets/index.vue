@@ -93,16 +93,13 @@
         </el-table-column>
         <el-table-column label="标签" min-width="170">
           <template #default="{ row }">
-            <el-tag
+            <AlbumTagBadge
               v-for="tag in row.tags || []"
               :key="tag.id"
-              size="small"
               class="tag-item"
-              :color="tag.color || undefined"
-              effect="plain"
-            >
-              {{ tag.name }}
-            </el-tag>
+              :name="tag.name"
+              :color="tag.color"
+            />
             <span v-if="!row.tags?.length" class="text-muted">无</span>
           </template>
         </el-table-column>
@@ -289,6 +286,7 @@
 <script setup lang="ts">
 import { Headset, Picture, VideoPlay } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadRawFile, type UploadRequestOptions } from "element-plus";
+import AlbumTagBadge from "@/components/AlbumTagBadge/index.vue";
 import AlbumAPI from "@/api/album";
 import FileAPI from "@/api/file";
 import AppUserAPI from "@/api/app-user";

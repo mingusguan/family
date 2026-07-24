@@ -21,7 +21,7 @@
     <view class="login__body" :style="{ paddingTop: `${statusBarHeight + navBarHeight + 4}px` }">
       <!-- Logo -->
       <view class="login__brand">
-        <image class="login__logo" src="/static/logo.png" mode="aspectFit" />
+        <image class="login__logo" src="/static/images/tongyan-logo-flat.png" mode="aspectFit" />
         <text class="login__brand-name">同檐时光</text>
       </view>
 
