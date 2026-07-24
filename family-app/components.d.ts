@@ -52,7 +52,6 @@ declare module 'vue' {
     WdRadioGroup: typeof import('@wot-ui/ui/components/wd-radio-group/wd-radio-group.vue')['default']
     WdSearch: typeof import('@wot-ui/ui/components/wd-search/wd-search.vue')['default']
     WdSelectPicker: typeof import('@wot-ui/ui/components/wd-select-picker/wd-select-picker.vue')['default']
-    WdSwiper: typeof import('@wot-ui/ui/components/wd-swiper/wd-swiper.vue')['default']
     WdSwitch: typeof import('@wot-ui/ui/components/wd-switch/wd-switch.vue')['default']
     WdTabbar: typeof import('@wot-ui/ui/components/wd-tabbar/wd-tabbar.vue')['default']
     WdTabbarItem: typeof import('@wot-ui/ui/components/wd-tabbar-item/wd-tabbar-item.vue')['default']
