@@ -6,6 +6,7 @@ import cn.binarywang.wx.miniapp.bean.security.WxMaMsgSecCheckCheckResponse;
 import cn.hutool.core.util.StrUtil;
 import com.youlai.boot.common.exception.BusinessException;
 import com.youlai.boot.common.result.ResultCode;
+import com.youlai.boot.framework.integration.wxma.WxMaProperties;
 import com.youlai.boot.framework.integration.wxma.service.WxContentSecurityService;
 import com.youlai.boot.system.enums.SocialPlatformEnum;
 import com.youlai.boot.system.model.entity.UserSocial;
@@ -39,6 +40,7 @@ public class WxContentSecurityServiceImpl implements WxContentSecurityService {
 
     private final WxMaService wxMaService;
     private final UserSocialService userSocialService;
+    private final WxMaProperties wxMaProperties;
 
     @Override
     public void checkImage(MultipartFile file) {
@@ -108,6 +110,12 @@ public class WxContentSecurityServiceImpl implements WxContentSecurityService {
         Integer errorCode = exception.getError() == null ? null : exception.getError().getErrorCode();
         if (Objects.equals(errorCode, CONTENT_RISK_ERROR_CODE)) {
             throw contentRejectedException();
+        }
+        if (wxMaProperties.getContentSecurity().isFailOpen()) {
+            // 微信接口故障不能导致用户内容永久无法发布；明确的违规结果仍在上方严格拦截。
+            log.error("微信内容安全检测调用失败，已按配置降级放行，contentType={}, errorCode={}",
+                    contentType, errorCode, exception);
+            return;
         }
         log.error("微信内容安全检测调用失败，contentType={}, errorCode={}", contentType, errorCode, exception);
         throw new BusinessException(ResultCode.THIRD_PARTY_SERVICE_ERROR, "内容安全检测暂时不可用，请稍后再试");

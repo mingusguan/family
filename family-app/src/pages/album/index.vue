@@ -214,7 +214,7 @@
               <text
                 v-if="moment.description"
                 class="moment-card__description"
-                @click.stop="goMomentDetail(moment)"
+                @click.stop="showDescription(moment.description)"
               >
                 {{ moment.description }}
               </text>
@@ -550,6 +550,17 @@ function loadMore() {
 }
 
 function goMomentDetail(moment: AlbumMomentBatch) {
+  const onlyCover = moment.covers[0];
+  if (
+    Number(moment.assetCount) === 1 &&
+    moment.covers.length === 1 &&
+    onlyCover?.mediaType === "IMAGE" &&
+    onlyCover.previewUrl
+  ) {
+    previewImageUrl.value = onlyCover.previewUrl;
+    return;
+  }
+
   uni.navigateTo({
     url:
       "/pages/album/detail?batchId=" +
@@ -574,7 +585,7 @@ function closeDescription() {
 }
 
 function getBatchMediaIcon(moment: AlbumMomentBatch) {
-  if (moment.assetCount > 1) return "▦";
+  if (Number(moment.assetCount) > 1) return "▦";
   const mediaType = moment.covers[0]?.mediaType;
   return mediaType === "VIDEO" ? "▶" : mediaType === "AUDIO" ? "♪" : "▧";
 }
@@ -1078,6 +1089,7 @@ onReachBottom(loadMore);
 .moment-collage__tile .moment-card__media,
 .moment-collage__tile .moment-card__audio {
   height: 100%;
+}
 
 .moment-card__media,
 .moment-card__audio {

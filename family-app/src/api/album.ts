@@ -128,7 +128,7 @@ export interface AlbumMomentBatch {
   tags?: AlbumTag[];
   capturedAt?: string;
   createTime: string;
-  assetCount: number;
+  assetCount: number | string;
   covers: AlbumMomentCover[];
 }
 

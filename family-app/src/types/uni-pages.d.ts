@@ -6,6 +6,7 @@
 type _LocationUrl =
   "/pages/index/index" |
   "/pages/album/category" |
+  "/pages/album/detail" |
   "/pages/album/index" |
   "/pages/album/publish" |
   "/pages/login/index" |

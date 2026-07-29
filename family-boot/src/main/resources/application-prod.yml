@@ -185,3 +185,5 @@ wx:
   miniapp:
     appid: ${WX_MINIAPP_APPID}
     secret: ${WX_MINIAPP_SECRET}
+    content-security:
+      fail-open: true # 微信检测服务异常时允许发布，明确违规内容仍会被拦截

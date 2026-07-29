@@ -20,4 +20,22 @@ public class WxMaProperties {
      */
     private String secret;
 
+
+    /**
+     * 用户内容安全检测配置。
+     */
+    private ContentSecurity contentSecurity = new ContentSecurity();
+
+    /**
+     * 内容安全检测配置。
+     */
+    @Data
+    public static class ContentSecurity {
+
+        /**
+         * 微信检测服务异常时是否降级放行。
+         * 明确命中违规内容时始终拒绝，不受该配置影响。
+         */
+        private boolean failOpen = true;
+    }
 }

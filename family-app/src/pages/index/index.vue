@@ -119,30 +119,37 @@
             <view class="memory-row">
               <view
                 v-for="moment in recentMoments"
-                :key="moment.id"
+                :key="moment.batchId"
                 class="memory"
                 @click="openMoment(moment)"
               >
-                <image
-                  v-if="moment.mediaType !== 'AUDIO'"
-                  class="memory__cover"
-                  :src="moment.thumbnailPreviewUrl || moment.previewUrl"
-                  mode="aspectFill"
-                  lazy-load
-                />
-                <view v-else class="memory__cover memory__audio">
-                  <wd-icon name="voice" size="34" color="#fff" />
+                <view
+                  class="memory__collage"
+                  :class="`memory__collage--${Math.min(moment.covers.length, 4)}`"
+                >
+                  <view
+                    v-for="(cover, coverIndex) in moment.covers.slice(0, 4)"
+                    :key="`${moment.batchId}-${coverIndex}`"
+                    class="memory__tile"
+                  >
+                    <image
+                      v-if="cover.mediaType !== 'AUDIO' && cover.previewUrl"
+                      class="memory__cover"
+                      :src="cover.previewUrl"
+                      mode="aspectFill"
+                      lazy-load
+                    />
+                    <view v-else class="memory__cover memory__audio">
+                      <wd-icon name="voice" size="34" color="#fff" />
+                    </view>
+                  </view>
                 </view>
                 <view class="memory__mask" />
-                <view v-if="moment.mediaType !== 'IMAGE'" class="memory__type">
-                  <wd-icon
-                    :name="moment.mediaType === 'VIDEO' ? 'play-circle' : 'voice'"
-                    size="15"
-                    color="#fff"
-                  />
+                <view class="memory__type">
+                  <text>{{ moment.assetCount }} 项</text>
                 </view>
                 <view class="memory__meta">
-                  <text>{{ moment.description || moment.originalName || "家庭时刻" }}</text>
+                  <text>{{ moment.description || "家庭时刻" }}</text>
                   <text>{{ formatMomentDate(moment) }}</text>
                 </view>
               </view>
@@ -261,7 +268,7 @@
 import { computed, ref } from "vue";
 import dayjs from "dayjs";
 import { onLoad, onShow } from "@dcloudio/uni-app";
-import AlbumAPI, { type AlbumMoment } from "@/api/album";
+import AlbumAPI, { type AlbumMomentBatch } from "@/api/album";
 import FamilyAPI, { type FamilyAlbum, type FamilyInfo, type FamilyInvite } from "@/api/family";
 import FamilyCardAPI, { type FamilySchedule } from "@/api/family-card";
 import NoticeAPI, { type NoticeItem } from "@/api/notice";
@@ -285,7 +292,7 @@ interface ActivityItem {
   color: string;
   title: string;
   time: string;
-  moment?: AlbumMoment;
+  moment?: AlbumMomentBatch;
 }
 
 const HOME_FAMILY_ID_KEY = "home-family-id";
@@ -295,7 +302,7 @@ const userStore = useUserStore();
 const families = ref<FamilyInfo[]>([]);
 const currentFamily = ref<FamilyInfo>();
 const albums = ref<FamilyAlbum[]>([]);
-const recentMoments = ref<AlbumMoment[]>([]);
+const recentMoments = ref<AlbumMomentBatch[]>([]);
 const schedules = ref<FamilySchedule[]>([]);
 const noticeList = ref<NoticeItem[]>([]);
 const pageLoading = ref(false);
@@ -364,7 +371,9 @@ const totalMemoryCount = computed(() =>
 const heroCover = computed(
   () =>
     currentFamily.value?.coverUrl ||
-    recentMoments.value.find((item) => item.mediaType === "IMAGE")?.previewUrl ||
+    recentMoments.value
+      .flatMap((item) => item.covers)
+      .find((item) => item.mediaType === "IMAGE")?.previewUrl ||
     albums.value.find((item) => item.coverUrl)?.coverUrl ||
     ""
 );
@@ -376,16 +385,16 @@ const upcomingSchedules = computed(() =>
 );
 const activityItems = computed<ActivityItem[]>(() => {
   const memories = recentMoments.value.slice(0, 2).map((moment) => ({
-    key: `memory-${moment.id}`,
+    key: `memory-${moment.batchId}`,
     kind: "memory" as const,
     icon:
-      moment.mediaType === "IMAGE"
+      moment.covers[0]?.mediaType === "IMAGE"
         ? "image"
-        : moment.mediaType === "VIDEO"
+        : moment.covers[0]?.mediaType === "VIDEO"
           ? "play-circle"
           : "voice",
     color: "#7567dc",
-    title: `${moment.uploaderName || "家庭成员"}上传了${moment.mediaTypeLabel || "新的回忆"}`,
+    title: `${moment.uploaderName || "家庭成员"}上传了${moment.assetCount}项回忆`,
     time: formatRelativeTime(moment.capturedAt || moment.createTime),
     moment,
   }));
@@ -461,7 +470,7 @@ async function loadFamilyContent(version = homeLoadVersion) {
       recentMoments.value = [];
       return;
     }
-    const result = await AlbumAPI.getMomentPage({
+    const result = await AlbumAPI.getMomentBatchPage({
       pageNum: 1,
       pageSize: 8,
       familyId,
@@ -569,13 +578,23 @@ function goFamilyManage() {
 function goLogin() {
   uni.navigateTo({ url: "/pages/login/index" });
 }
-function openMoment(moment: AlbumMoment) {
-  if (moment.mediaType !== "IMAGE") {
-    goAlbum();
+function openMoment(moment: AlbumMomentBatch) {
+  const onlyCover = moment.covers[0];
+  if (
+    Number(moment.assetCount) === 1 &&
+    moment.covers.length === 1 &&
+    onlyCover?.mediaType === "IMAGE" &&
+    onlyCover.previewUrl
+  ) {
+    uni.previewImage({
+      current: onlyCover.previewUrl,
+      urls: [onlyCover.previewUrl],
+    });
     return;
   }
-  const images = recentMoments.value.filter((item) => item.mediaType === "IMAGE");
-  uni.previewImage({ current: moment.previewUrl, urls: images.map((item) => item.previewUrl) });
+  uni.navigateTo({
+    url: `/pages/album/detail?batchId=${encodeURIComponent(moment.batchId)}&familyId=${moment.familyId}&albumId=${moment.albumId}`,
+  });
 }
 function openNoticeList() {
   uni.navigateTo({ url: "/pages/work/notice/index" });
@@ -583,7 +602,7 @@ function openNoticeList() {
 function handleActivityClick(item: ActivityItem) {
   item.kind === "memory" && item.moment ? openMoment(item.moment) : openNoticeList();
 }
-function formatMomentDate(moment: AlbumMoment) {
+function formatMomentDate(moment: AlbumMomentBatch) {
   return dayjs(moment.capturedAt || moment.createTime).format("MM月DD日 HH:mm");
 }
 function formatRelativeTime(value: string) {
@@ -925,10 +944,36 @@ async function processPendingFamilyInvite() {
   background: #eeeaf3;
   border-radius: 23rpx;
 }
-.memory__cover,
+.memory__collage,
 .memory__mask {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.memory__collage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 2rpx;
+}
+.memory__collage--1 .memory__tile {
+  grid-row: 1 / 3;
+  grid-column: 1 / 3;
+}
+.memory__collage--2 .memory__tile {
+  grid-row: 1 / 3;
+}
+.memory__collage--3 .memory__tile:first-child {
+  grid-row: 1 / 3;
+}
+.memory__tile {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.memory__cover {
+  display: block;
   width: 100%;
   height: 100%;
 }
@@ -948,10 +993,12 @@ async function processPendingFamilyInvite() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 45rpx;
-  height: 45rpx;
+  height: 38rpx;
+  padding: 0 12rpx;
+  color: #fff;
+  font-size: 18rpx;
   background: rgb(25 21 34/58%);
-  border-radius: 50%;
+  border-radius: 999rpx;
 }
 .memory__meta {
   position: absolute;
