@@ -337,6 +337,7 @@ public final class AlbumModels {
     @Schema(description = "相册资源管理视图")
     public static class AlbumAssetVO {
         private Long id;
+        private String uploadBatchId;
         private Long uploaderId;
         private String uploaderName;
         private Long familyId;
@@ -362,6 +363,61 @@ public final class AlbumModels {
         private LocalDateTime createTime;
         private LocalDateTime updateTime;
     }
+
+    /** APP 相册批次列表视图。 */
+    @Data
+    @Schema(description = "APP相册批次列表视图")
+    public static class AlbumMomentBatchVO {
+        private String batchId;
+        private Long uploaderId;
+        private String uploaderName;
+        private Long familyId;
+        private Long albumId;
+        private String description;
+        private List<AlbumTagVO> tags;
+        private LocalDateTime capturedAt;
+        private LocalDateTime createTime;
+        private Long assetCount;
+        private List<AlbumMomentCoverVO> covers;
+    }
+
+    /** APP 相册批次封面缩略图。 */
+    @Data
+    @Schema(description = "APP相册批次封面缩略图")
+    public static class AlbumMomentCoverVO {
+        private AlbumMediaTypeEnum mediaType;
+        private String previewUrl;
+    }
+
+    /** APP 相册批次详情视图。 */
+    @Data
+    @Schema(description = "APP相册批次详情视图")
+    public static class AlbumMomentDetailVO {
+        private String batchId;
+        private Long uploaderId;
+        private String uploaderName;
+        private Long familyId;
+        private Long albumId;
+        private String description;
+        private List<AlbumTagVO> tags;
+        private LocalDateTime capturedAt;
+        private LocalDateTime createTime;
+        private List<AlbumAssetVO> assets;
+    }
+
+    /** Mapper 用于承载批次分页主查询结果。 */
+    @Data
+    public static class AlbumMomentBatchRow {
+        private String batchId;
+        private Long uploaderId;
+        private Long familyId;
+        private Long albumId;
+        private String description;
+        private LocalDateTime capturedAt;
+        private LocalDateTime createTime;
+        private Long assetCount;
+    }
+
 
     /** 相册分组视图。 */
     @Data

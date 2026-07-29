@@ -188,43 +188,33 @@
         </view>
 
         <view v-else class="moment-grid">
-          <view v-for="(moment, index) in moments" :key="moment.id" class="moment-card">
+          <view v-for="moment in moments" :key="moment.batchId" class="moment-card" @click="goMomentDetail(moment)">
             <view class="moment-card__visual">
-              <image
-                v-if="moment.mediaType === 'IMAGE'"
-                class="moment-card__media"
-                :src="moment.thumbnailPreviewUrl || moment.previewUrl"
-                mode="aspectFill"
-                lazy-load
-                @click="previewImage(index)"
-              />
-              <video
-                v-else-if="moment.mediaType === 'VIDEO'"
-                class="moment-card__media"
-                :src="moment.previewUrl"
-                :poster="moment.thumbnailPreviewUrl"
-                controls
-                object-fit="cover"
-              />
-              <view v-else class="moment-card__audio" @click="playAudio(moment)">
-                <view class="audio-disc">
-                  <wd-icon name="play-circle" size="42rpx" color="#ffffff" />
+              <view class="moment-collage" :class="'moment-collage--' + Math.min(moment.covers.length, 4)">
+                <view v-for="(cover, coverIndex) in moment.covers" :key="coverIndex" class="moment-collage__tile">
+                  <image
+                    v-if="cover.previewUrl && cover.mediaType !== 'AUDIO'"
+                    class="moment-card__media"
+                    :src="cover.previewUrl"
+                    mode="aspectFill"
+                    lazy-load
+                  />
+                  <view v-else class="moment-card__audio">
+                    <wd-icon :name="cover.mediaType === 'AUDIO' ? 'sound' : 'image'" size="42rpx" color="#ffffff" />
+                  </view>
                 </view>
-                <text>播放声音</text>
               </view>
-              <cover-view class="moment-card__media-badge">
-                <cover-view class="moment-card__media-icon">
-                  {{ getMediaIcon(moment.mediaType) }}
-                </cover-view>
-                <cover-view>{{ formatMediaMeta(moment) }}</cover-view>
-              </cover-view>
+              <view class="moment-card__media-badge">
+                <text class="moment-card__media-icon">{{ getBatchMediaIcon(moment) }}</text>
+                <text>{{ moment.assetCount }} 项</text>
+              </view>
             </view>
 
             <view class="moment-card__body">
               <text
                 v-if="moment.description"
                 class="moment-card__description"
-                @click="showDescription(moment.description)"
+                @click.stop="goMomentDetail(moment)"
               >
                 {{ moment.description }}
               </text>
@@ -301,7 +291,7 @@
 import { computed, ref } from "vue";
 import dayjs from "dayjs";
 import { onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
-import AlbumAPI, { type AlbumMoment } from "@/api/album";
+import AlbumAPI, { type AlbumMoment, type AlbumMomentBatch } from "@/api/album";
 import FamilyAPI, { type FamilyAlbum, type FamilyInfo } from "@/api/family";
 import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { useNavbar } from "@/composables/useNavbar";
@@ -315,7 +305,7 @@ const families = ref<FamilyInfo[]>([]);
 const albums = ref<FamilyAlbum[]>([]);
 const currentFamily = ref<FamilyInfo>();
 const currentAlbum = ref<FamilyAlbum>();
-const moments = ref<AlbumMoment[]>([]);
+const moments = ref<AlbumMomentBatch[]>([]);
 const pageNum = ref(1);
 const total = ref(0);
 const pageLoading = ref(false);
@@ -341,7 +331,7 @@ const selectedDateLabel = computed(() => {
   );
 });
 const finished = computed(() => initialized.value && moments.value.length >= total.value);
-let audioContext: UniApp.InnerAudioContext | undefined;
+
 
 definePage({
   name: "album",
@@ -403,7 +393,7 @@ async function loadMoments(reset = false) {
   if (reset) pageNum.value = 1;
   try {
     const dateRange = getSearchDateRange();
-    const result = await AlbumAPI.getMomentPage({
+    const result = await AlbumAPI.getMomentBatchPage({
       pageNum: pageNum.value,
       pageSize: PAGE_SIZE,
       familyId: currentFamily.value.id,
@@ -559,9 +549,16 @@ function loadMore() {
   });
 }
 
-function previewImage(index: number) {
-  const current = moments.value[index];
-  previewImageUrl.value = current.previewUrl;
+function goMomentDetail(moment: AlbumMomentBatch) {
+  uni.navigateTo({
+    url:
+      "/pages/album/detail?batchId=" +
+      encodeURIComponent(moment.batchId) +
+      "&familyId=" +
+      moment.familyId +
+      "&albumId=" +
+      moment.albumId,
+  });
 }
 
 function closeImagePreview() {
@@ -576,13 +573,13 @@ function closeDescription() {
   activeDescription.value = "";
 }
 
-function playAudio(moment: AlbumMoment) {
-  if (audioContext) audioContext.destroy();
-  audioContext = uni.createInnerAudioContext();
-  audioContext.src = moment.previewUrl;
-  audioContext.play();
-  uni.showToast({ title: "正在播放声音", icon: "none" });
+function getBatchMediaIcon(moment: AlbumMomentBatch) {
+  if (moment.assetCount > 1) return "▦";
+  const mediaType = moment.covers[0]?.mediaType;
+  return mediaType === "VIDEO" ? "▶" : mediaType === "AUDIO" ? "♪" : "▧";
 }
+
+
 
 function formatDuration(duration: number) {
   const seconds = Math.round(duration / 1000);
@@ -1048,6 +1045,39 @@ onReachBottom(loadMore);
   height: 270rpx;
   overflow: hidden;
 }
+
+.moment-collage {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 3rpx;
+  background: #ebe7f3;
+}
+
+.moment-collage__tile {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.moment-collage--1 .moment-collage__tile {
+  grid-row: 1 / 3;
+  grid-column: 1 / 3;
+}
+
+.moment-collage--2 .moment-collage__tile {
+  grid-row: 1 / 3;
+}
+
+.moment-collage--3 .moment-collage__tile:first-child {
+  grid-row: 1 / 3;
+}
+
+.moment-collage__tile .moment-card__media,
+.moment-collage__tile .moment-card__audio {
+  height: 100%;
 
 .moment-card__media,
 .moment-card__audio {

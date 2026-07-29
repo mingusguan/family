@@ -2,6 +2,54 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.youlai.boot.album.mapper.AlbumAssetMapper">
 
+    <select id="selectMomentBatchPage" resultType="com.youlai.boot.album.model.AlbumModels$AlbumMomentBatchRow">
+        SELECT COALESCE(a.upload_batch_id, CONCAT('legacy-', a.id)) AS batch_id,
+               MAX(a.uploader_id) AS uploader_id,
+               MAX(a.family_id) AS family_id,
+               MAX(a.album_id) AS album_id,
+               MAX(a.description) AS description,
+               MAX(a.captured_at) AS captured_at,
+               MAX(a.create_time) AS create_time,
+               COUNT(*) AS asset_count
+        FROM app_album_asset a
+        WHERE a.is_deleted = 0
+          AND a.family_id = #{query.familyId}
+          AND a.album_id = #{query.albumId}
+          AND a.status = 1
+        <if test="query.mine != null and query.mine">
+          AND a.uploader_id = #{currentUserId}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+          AND (
+            a.description LIKE CONCAT('%', #{query.keyword}, '%')
+            <if test="taggedAssetIds != null and taggedAssetIds.size() > 0">
+              OR a.id IN
+              <foreach collection="taggedAssetIds" item="assetId" open="(" separator="," close=")">
+                #{assetId}
+              </foreach>
+            </if>
+          )
+        </if>
+        <if test="query.startDate != null and query.endDate != null">
+          AND COALESCE(a.captured_at, a.create_time) <![CDATA[>=]]> #{query.startDate}
+          AND COALESCE(a.captured_at, a.create_time) <![CDATA[<]]> DATE_ADD(#{query.endDate}, INTERVAL 1 DAY)
+        </if>
+        <if test="query.months != null and query.months.size() > 0">
+          AND DATE_FORMAT(COALESCE(a.captured_at, a.create_time), '%Y-%m') IN
+          <foreach collection="query.months" item="month" open="(" separator="," close=")">
+            #{month}
+          </foreach>
+        </if>
+        <if test="query.mediaTypes != null and query.mediaTypes.size() > 0">
+          AND a.media_type IN
+          <foreach collection="query.mediaTypes" item="mediaType" open="(" separator="," close=")">
+            #{mediaType}
+          </foreach>
+        </if>
+        GROUP BY COALESCE(a.upload_batch_id, CONCAT('legacy-', a.id))
+        ORDER BY MAX(COALESCE(a.captured_at, a.create_time)) DESC,
+                 MAX(a.create_time) DESC
+    </select>
     <update id="updateGroupBatch">
         UPDATE app_album_asset
         SET group_id = #{groupId}, update_time = CURRENT_TIMESTAMP

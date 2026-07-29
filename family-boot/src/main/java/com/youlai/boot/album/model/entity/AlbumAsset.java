@@ -24,6 +24,7 @@ public class AlbumAsset extends BaseEntity {
     private Long uploaderId;
     private Long familyId;
     private Long albumId;
+    private String uploadBatchId;
     private AlbumMediaTypeEnum mediaType;
     private String url;
     private String thumbnailUrl;
@@ -94,6 +95,14 @@ public class AlbumAsset extends BaseEntity {
     public void changeGroup(Long groupId) {
         this.groupId = groupId;
     }
+
+    /**
+     * 标记资源所属的客户端批量发布批次。
+     */
+    public void assignUploadBatch(String uploadBatchId) {
+        this.uploadBatchId = uploadBatchId;
+    }
+
 
     private void apply(AlbumAssetSaveRequest request) {
         this.uploaderId = request.getUploaderId();

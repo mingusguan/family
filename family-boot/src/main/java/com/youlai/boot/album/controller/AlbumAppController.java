@@ -2,6 +2,8 @@ package com.youlai.boot.album.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumTagCreateRequest;
@@ -46,6 +48,29 @@ public class AlbumAppController {
     public PageResult<AlbumAssetVO> getMomentPage(@Valid AlbumMomentQuery query) {
         IPage<AlbumAssetVO> page = albumManagementService.getMomentPage(query);
         return PageResult.success(page);
+    }
+
+    /**
+     * 按上传批次分页读取合并后的精彩时刻。
+     */
+    @Operation(summary = "精彩时刻批次分页列表")
+    @GetMapping("/moment-batches")
+    public PageResult<AlbumMomentBatchVO> getMomentBatchPage(@Valid AlbumMomentQuery query) {
+        IPage<AlbumMomentBatchVO> page = albumManagementService.getMomentBatchPage(query);
+        return PageResult.success(page);
+    }
+
+    /**
+     * 读取一次批量发布中的全部相册资源。
+     */
+    @Operation(summary = "精彩时刻批次详情")
+    @GetMapping("/moments/batches/{batchId}")
+    public Result<AlbumMomentDetailVO> getMomentDetail(
+            @PathVariable String batchId,
+            @RequestParam Long familyId,
+            @RequestParam Long albumId
+    ) {
+        return Result.success(albumManagementService.getMomentDetail(batchId, familyId, albumId));
     }
 
     /**

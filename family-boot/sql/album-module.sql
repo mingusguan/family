@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS `app_album_asset` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '资源ID',
   `uploader_id` BIGINT NOT NULL COMMENT '上传用户ID',
   `media_type` VARCHAR(16) NOT NULL COMMENT '资源类型：IMAGE/VIDEO/AUDIO',
+  upload_batch_id VARCHAR(64) DEFAULT NULL COMMENT '客户端批量发布批次ID',
   `url` VARCHAR(1000) NOT NULL COMMENT '资源访问地址',
   `thumbnail_url` VARCHAR(1000) DEFAULT NULL COMMENT '缩略图或视频封面地址',
   `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `app_album_asset` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='APP相册资源';
 
 -- 分组和标签为全局数据，不绑定 APP 用户
+  KEY idx_album_asset_batch (upload_batch_id, id),
 CREATE TABLE IF NOT EXISTS `app_album_group` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '分组ID',
   `name` VARCHAR(50) NOT NULL COMMENT '分组名称',

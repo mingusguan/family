@@ -14,6 +14,10 @@ import com.youlai.boot.album.mapper.AlbumTagMapper;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchRow;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentCoverVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupSaveRequest;
@@ -48,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -150,10 +155,191 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         if (Boolean.TRUE.equals(query.getMine())) {
             assetQuery.setUploaderId(requireCurrentUserId());
         }
-        // 客户端只读取当前家庭相册中状态正常的资源，后台隐藏后会立即从 APP 消失。
         return getAssetPage(assetQuery);
     }
 
+    @Override
+    public IPage<AlbumMomentBatchVO> getMomentBatchPage(AlbumMomentQuery query) {
+        familyService.ensureCurrentUserMember(query.getFamilyId());
+        familyService.ensureAlbumBelongsToFamily(query.getAlbumId(), query.getFamilyId());
+        validateMomentQuery(query);
+
+        String keyword = normalizeContentKeyword(query.getKeyword());
+        query.setKeyword(keyword);
+        List<Long> taggedAssetIds = resolveAssetIdsByTagKeyword(keyword);
+        Long currentUserId = Boolean.TRUE.equals(query.getMine()) ? requireCurrentUserId() : null;
+        Page<AlbumMomentBatchRow> batchPage = assetMapper.selectMomentBatchPage(
+                new Page<>(query.getPageNum(), query.getPageSize()),
+                query,
+                taggedAssetIds,
+                currentUserId
+        );
+        Page<AlbumMomentBatchVO> result = new Page<>(
+                batchPage.getCurrent(),
+                batchPage.getSize(),
+                batchPage.getTotal()
+        );
+        if (batchPage.getRecords().isEmpty()) {
+            result.setRecords(Collections.emptyList());
+            return result;
+        }
+
+        List<String> batchIds = batchPage.getRecords().stream()
+                .map(AlbumMomentBatchRow::getBatchId)
+                .toList();
+        Map<String, List<AlbumAssetVO>> assetsByBatch = assembleAssetVOs(
+                listAssetsByBatchIds(batchIds, query.getFamilyId(), query.getAlbumId())
+        ).stream().collect(Collectors.groupingBy(
+                this::resolveBatchId,
+                LinkedHashMap::new,
+                Collectors.toList()
+        ));
+        Map<Long, String> uploaderNames = getUserNames(batchPage.getRecords().stream()
+                .map(AlbumMomentBatchRow::getUploaderId)
+                .collect(Collectors.toSet()));
+        result.setRecords(batchPage.getRecords().stream()
+                .map(row -> toMomentBatchVO(
+                        row,
+                        assetsByBatch.getOrDefault(row.getBatchId(), Collections.emptyList()),
+                        uploaderNames.get(row.getUploaderId())
+                ))
+                .toList());
+        // 客户端按上传批次分页，后台隐藏的资源不会进入批次封面或详情。
+        return result;
+    }
+
+    @Override
+    public AlbumMomentDetailVO getMomentDetail(String batchId, Long familyId, Long albumId) {
+        familyService.ensureCurrentUserMember(familyId);
+        familyService.ensureAlbumBelongsToFamily(albumId, familyId);
+        List<AlbumAssetVO> assets = assembleAssetVOs(listAssetsByBatchIds(List.of(batchId), familyId, albumId));
+        if (assets.isEmpty()) {
+            throw new BusinessException("相册批次不存在");
+        }
+        AlbumAssetVO first = assets.get(0);
+        AlbumMomentDetailVO detail = new AlbumMomentDetailVO();
+        detail.setBatchId(batchId);
+        detail.setUploaderId(first.getUploaderId());
+        detail.setUploaderName(first.getUploaderName());
+        detail.setFamilyId(familyId);
+        detail.setAlbumId(albumId);
+        detail.setDescription(first.getDescription());
+        detail.setTags(mergeTags(assets));
+        detail.setCapturedAt(first.getCapturedAt());
+        detail.setCreateTime(first.getCreateTime());
+        detail.setAssets(assets);
+        return detail;
+    }
+
+    private void validateMomentQuery(AlbumMomentQuery query) {
+        AlbumAssetQuery assetQuery = new AlbumAssetQuery();
+        assetQuery.setStartDate(query.getStartDate());
+        assetQuery.setEndDate(query.getEndDate());
+        validateDateRange(assetQuery);
+        parseMonthFilters(query.getMonths());
+    }
+
+    private List<AlbumAsset> listAssetsByBatchIds(List<String> batchIds, Long familyId, Long albumId) {
+        if (CollectionUtil.isEmpty(batchIds)) {
+            return Collections.emptyList();
+        }
+        List<String> actualBatchIds = batchIds.stream()
+                .filter(batchId -> batchId != null && !batchId.startsWith("legacy-"))
+                .peek(this::validateBatchId)
+                .toList();
+        List<Long> legacyAssetIds = batchIds.stream()
+                .filter(batchId -> batchId != null && batchId.startsWith("legacy-"))
+                .map(this::parseLegacyAssetId)
+                .toList();
+
+        LambdaQueryWrapper<AlbumAsset> wrapper = new LambdaQueryWrapper<AlbumAsset>()
+                .eq(AlbumAsset::getFamilyId, familyId)
+                .eq(AlbumAsset::getAlbumId, albumId)
+                .eq(AlbumAsset::getStatus, 1)
+                .and(condition -> {
+                    if (CollectionUtil.isNotEmpty(actualBatchIds)) {
+                        condition.in(AlbumAsset::getUploadBatchId, actualBatchIds);
+                    }
+                    if (CollectionUtil.isNotEmpty(legacyAssetIds)) {
+                        condition.or(CollectionUtil.isNotEmpty(actualBatchIds))
+                                .in(AlbumAsset::getId, legacyAssetIds);
+                    }
+                })
+                .orderByAsc(AlbumAsset::getId);
+        return assetMapper.selectList(wrapper);
+    }
+
+    private void validateBatchId(String batchId) {
+        if (!batchId.matches("[a-fA-F0-9]{32,64}")) {
+            throw new BusinessException("相册批次格式不正确");
+        }
+    }
+
+    private Long parseLegacyAssetId(String batchId) {
+        try {
+            return Long.valueOf(batchId.substring("legacy-".length()));
+        } catch (RuntimeException exception) {
+            throw new BusinessException("相册批次格式不正确");
+        }
+    }
+
+    private List<AlbumAssetVO> assembleAssetVOs(List<AlbumAsset> assets) {
+        if (assets.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Page<AlbumAsset> assetPage = new Page<>(1, assets.size(), assets.size());
+        assetPage.setRecords(assets);
+        return assembleAssetPage(assetPage).getRecords();
+    }
+
+    private String resolveBatchId(AlbumAssetVO asset) {
+        return StrUtil.isBlank(asset.getUploadBatchId())
+                ? "legacy-" + asset.getId()
+                : asset.getUploadBatchId();
+    }
+
+    private AlbumMomentBatchVO toMomentBatchVO(
+            AlbumMomentBatchRow row,
+            List<AlbumAssetVO> assets,
+            String uploaderName
+    ) {
+        AlbumMomentBatchVO vo = new AlbumMomentBatchVO();
+        vo.setBatchId(row.getBatchId());
+        vo.setUploaderId(row.getUploaderId());
+        vo.setUploaderName(uploaderName);
+        vo.setFamilyId(row.getFamilyId());
+        vo.setAlbumId(row.getAlbumId());
+        vo.setDescription(row.getDescription());
+        vo.setTags(mergeTags(assets));
+        vo.setCapturedAt(row.getCapturedAt());
+        vo.setCreateTime(row.getCreateTime());
+        vo.setAssetCount(row.getAssetCount());
+        // 列表最多返回四张轻量封面，完整资源只在详情页加载。
+        vo.setCovers(assets.stream().limit(4).map(asset -> {
+            AlbumMomentCoverVO cover = new AlbumMomentCoverVO();
+            cover.setMediaType(asset.getMediaType());
+            cover.setPreviewUrl(StrUtil.blankToDefault(
+                    asset.getThumbnailPreviewUrl(),
+                    asset.getPreviewUrl()
+            ));
+            return cover;
+        }).toList());
+        return vo;
+    }
+
+    private List<AlbumTagVO> mergeTags(List<AlbumAssetVO> assets) {
+        return assets.stream()
+                .flatMap(asset -> CollectionUtil.emptyIfNull(asset.getTags()).stream())
+                .collect(Collectors.toMap(
+                        AlbumTagVO::getId,
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+    }
     private List<Long> resolveAssetIdsByTagId(Long tagId) {
         if (tagId == null) {
             return Collections.emptyList();
@@ -233,8 +419,10 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         validateTags(request.getTagIds());
         wxContentSecurityService.checkText(uploaderId, collectPublishedText(request));
         // 同一批次资源共用家庭、相册、标签和描述，统一组装后使用 MyBatis-Plus 批量写入。
+        String uploadBatchId = UUID.randomUUID().toString().replace("-", "");
         List<AlbumAsset> assets = request.getResources().stream().map(resource -> {
             AlbumAsset asset = AlbumAsset.createMoment(uploaderId, request, resource);
+            asset.assignUploadBatch(uploadBatchId);
             asset.changeGroup(resolveMediaGroupId(resource.getMediaType()));
             return asset;
         }).toList();
@@ -666,6 +854,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
     private AlbumAssetVO toAssetVO(AlbumAsset asset, String groupName, List<AlbumTagVO> tags, String uploaderName) {
         AlbumAssetVO vo = new AlbumAssetVO();
         vo.setId(asset.getId());
+        vo.setUploadBatchId(asset.getUploadBatchId());
         vo.setUploaderId(asset.getUploaderId());
         vo.setUploaderName(uploaderName);
         vo.setFamilyId(asset.getFamilyId());

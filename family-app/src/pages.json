@@ -45,6 +45,15 @@
       }
     },
     {
+      "path": "pages/album/detail",
+      "type": "page",
+      "name": "album-detail",
+      "style": {
+        "navigationBarTitleText": "回忆详情",
+        "backgroundColor": "#f5f3fa"
+      }
+    },
+    {
       "path": "pages/album/index",
       "type": "page",
       "name": "album",

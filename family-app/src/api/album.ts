@@ -16,6 +16,27 @@ const AlbumAPI = {
     });
   },
 
+  getMomentBatchPage(query: AlbumMomentQuery) {
+    const data = Object.fromEntries(
+      Object.entries(query).filter(
+        ([, value]) => value !== undefined && value !== null && value !== ""
+      )
+    ) as unknown as AlbumMomentQuery;
+    return request<PageResult<AlbumMomentBatch>>({
+      url: ALBUM_BASE_URL + "/moment-batches",
+      method: "GET",
+      data,
+    });
+  },
+
+  getMomentDetail(batchId: string, familyId: number, albumId: number) {
+    return request<AlbumMomentDetail>({
+      url: ALBUM_BASE_URL + "/moments/batches/" + batchId,
+      method: "GET",
+      data: { familyId, albumId },
+    });
+  },
+
   createMoment(data: AlbumMomentCreateRequest) {
     return request<void>({
       url: ALBUM_BASE_URL + "/moments",
@@ -91,6 +112,38 @@ export interface AlbumTag {
   color?: string;
 }
 
+
+export interface AlbumMomentCover {
+  mediaType: AlbumMediaType;
+  previewUrl?: string;
+}
+
+export interface AlbumMomentBatch {
+  batchId: string;
+  uploaderId: number;
+  uploaderName?: string;
+  familyId: number;
+  albumId: number;
+  description?: string;
+  tags?: AlbumTag[];
+  capturedAt?: string;
+  createTime: string;
+  assetCount: number;
+  covers: AlbumMomentCover[];
+}
+
+export interface AlbumMomentDetail {
+  batchId: string;
+  uploaderId: number;
+  uploaderName?: string;
+  familyId: number;
+  albumId: number;
+  description?: string;
+  tags?: AlbumTag[];
+  capturedAt?: string;
+  createTime: string;
+  assets: AlbumMoment[];
+}
 export interface AlbumMoment {
   id: number;
   uploaderId: number;

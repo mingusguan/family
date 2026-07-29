@@ -5,6 +5,8 @@ import com.youlai.boot.album.model.AlbumModels.AlbumAssetQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupVO;
@@ -22,6 +24,10 @@ public interface AlbumManagementService {
     IPage<AlbumAssetVO> getAssetPage(AlbumAssetQuery query);
 
     IPage<AlbumAssetVO> getMomentPage(AlbumMomentQuery query);
+
+    IPage<AlbumMomentBatchVO> getMomentBatchPage(AlbumMomentQuery query);
+
+    AlbumMomentDetailVO getMomentDetail(String batchId, Long familyId, Long albumId);
 
     boolean saveMoment(AlbumMomentCreateRequest request);
 
