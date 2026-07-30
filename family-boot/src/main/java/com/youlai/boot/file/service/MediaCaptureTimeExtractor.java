@@ -4,6 +4,11 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.Tag;
+import com.drew.metadata.exif.ExifDirectoryBase;
+import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.iptc.IptcDirectory;
+import com.drew.metadata.xmp.XmpDirectory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,6 +19,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,6 +38,8 @@ public class MediaCaptureTimeExtractor {
             "Create Date",
             "Media Create Date",
             "Creation Time",
+            "Date Created",
+            "Digital Date Created",
             "Date/Time"
     );
 
@@ -48,6 +56,10 @@ public class MediaCaptureTimeExtractor {
         }
         try (InputStream inputStream = file.getInputStream()) {
             Metadata metadata = ImageMetadataReader.readMetadata(inputStream, file.getSize());
+            Optional<LocalDateTime> structuredCapturedAt = findStructuredCaptureTime(metadata);
+            if (structuredCapturedAt.isPresent()) {
+                return structuredCapturedAt;
+            }
             for (String tagName : CAPTURE_TIME_TAGS) {
                 Optional<LocalDateTime> capturedAt = findByTagName(metadata, tagName);
                 if (capturedAt.isPresent()) {
@@ -57,6 +69,79 @@ public class MediaCaptureTimeExtractor {
         } catch (Exception exception) {
             // 元数据缺失或媒体格式不支持不能阻塞正常上传，调用方会回退为上传时间。
             log.debug("未能从上传文件提取拍摄时间，contentType={}", file.getContentType(), exception);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<LocalDateTime> findStructuredCaptureTime(Metadata metadata) {
+        // 相机照片优先读取 EXIF 标准字段，避免依赖不同格式下可能变化的展示标签名。
+        for (ExifSubIFDDirectory directory : metadata.getDirectoriesOfType(ExifSubIFDDirectory.class)) {
+            Optional<LocalDateTime> capturedAt = firstReasonableDate(
+                    directory.getDateOriginal(),
+                    directory.getDateDigitized(),
+                    directory.getDateModified()
+            );
+            if (capturedAt.isPresent()) {
+                return capturedAt;
+            }
+        }
+
+        for (ExifIFD0Directory directory : metadata.getDirectoriesOfType(ExifIFD0Directory.class)) {
+            Optional<LocalDateTime> capturedAt = parseValue(directory.getDate(ExifDirectoryBase.TAG_DATETIME))
+                    .filter(this::isReasonableCaptureTime);
+            if (capturedAt.isPresent()) {
+                return capturedAt;
+            }
+        }
+
+        // 编辑软件和部分手机会把原始日期写入 IPTC 或 XMP，而不是 EXIF 子目录。
+        for (IptcDirectory directory : metadata.getDirectoriesOfType(IptcDirectory.class)) {
+            Optional<LocalDateTime> capturedAt = firstReasonableDate(
+                    directory.getDateCreated(),
+                    directory.getDigitalDateCreated()
+            );
+            if (capturedAt.isPresent()) {
+                return capturedAt;
+            }
+        }
+
+        for (XmpDirectory directory : metadata.getDirectoriesOfType(XmpDirectory.class)) {
+            Optional<LocalDateTime> capturedAt = findXmpCaptureTime(directory);
+            if (capturedAt.isPresent()) {
+                return capturedAt;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<LocalDateTime> firstReasonableDate(Date... dates) {
+        for (Date date : dates) {
+            Optional<LocalDateTime> capturedAt = parseValue(date).filter(this::isReasonableCaptureTime);
+            if (capturedAt.isPresent()) {
+                return capturedAt;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<LocalDateTime> findXmpCaptureTime(XmpDirectory directory) {
+        List<String> propertyNames = List.of(
+                "DateTimeOriginal",
+                "DateTimeDigitized",
+                "DateCreated",
+                "CreateDate"
+        );
+        for (String propertyName : propertyNames) {
+            for (var property : directory.getXmpProperties().entrySet()) {
+                if (!property.getKey().toLowerCase(Locale.ROOT).endsWith(propertyName.toLowerCase(Locale.ROOT))) {
+                    continue;
+                }
+                Optional<LocalDateTime> capturedAt = parseValue(property.getValue())
+                        .filter(this::isReasonableCaptureTime);
+                if (capturedAt.isPresent()) {
+                    return capturedAt;
+                }
+            }
         }
         return Optional.empty();
     }
