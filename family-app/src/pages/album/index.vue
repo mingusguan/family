@@ -105,7 +105,7 @@
               <input
                 v-model="searchKeyword"
                 class="moment-search__field"
-                placeholder="搜索描述或标签"
+                placeholder="搜索描述"
                 confirm-type="search"
                 :maxlength="100"
                 @confirm="applySearch"
@@ -169,7 +169,7 @@
           <text class="moment-empty__desc">
             {{
               hasSearchFilters
-                ? "换个日期、描述或标签再试试"
+                ? "换个日期或描述再试试"
                 : "上传照片、视频或一段声音，留下第一个回忆"
             }}
           </text>
@@ -219,16 +219,6 @@
                 {{ moment.description }}
               </text>
               <view v-else class="moment-card__description-placeholder" />
-              <view v-if="moment.tags?.length" class="moment-card__tags">
-                <text
-                  v-for="tag in moment.tags"
-                  :key="tag.id"
-                  class="moment-card__tag"
-                  :style="getTagColorStyle(tag.color)"
-                >
-                  #{{ tag.name }}
-                </text>
-              </view>
               <view class="moment-card__footer">
                 <text>{{ moment.uploaderName || "家庭成员" }}</text>
                 <text>{{ formatDate(moment.capturedAt || moment.createTime) }}</text>
@@ -297,7 +287,6 @@ import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { useNavbar } from "@/composables/useNavbar";
 import { isLoggedIn } from "@/utils/auth";
 import { Storage } from "@/utils/storage";
-import { getTagColorStyle } from "@/utils/tagColor";
 
 const PAGE_SIZE = 12;
 const navbar = useNavbar({ hasTabbar: true });
@@ -331,7 +320,6 @@ const selectedDateLabel = computed(() => {
   );
 });
 const finished = computed(() => initialized.value && moments.value.length >= total.value);
-
 
 definePage({
   name: "album",
@@ -589,8 +577,6 @@ function getBatchMediaIcon(moment: AlbumMomentBatch) {
   const mediaType = moment.covers[0]?.mediaType;
   return mediaType === "VIDEO" ? "▶" : mediaType === "AUDIO" ? "♪" : "▧";
 }
-
-
 
 function formatDuration(duration: number) {
   const seconds = Math.round(duration / 1000);
@@ -1160,30 +1146,6 @@ onReachBottom(loadMore);
 
 .moment-card__description-placeholder {
   height: 69rpx;
-}
-
-.moment-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 12rpx;
-  font-size: 20rpx;
-  color: #796bdd;
-}
-
-.moment-card__tag {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 5rpx 10rpx;
-  overflow: hidden;
-  font-size: 18rpx;
-  color: #6f60ce;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: #efecff;
-  border: 1rpx solid transparent;
-  border-radius: 999rpx;
 }
 
 .moment-card__footer {

@@ -7,16 +7,7 @@ export interface AlbumAssetQuery extends BaseQueryParams {
   mediaType?: AlbumMediaType;
   uploaderId?: string;
   groupId?: string;
-  tagId?: string;
   status?: number;
-}
-
-export interface AlbumTagItem {
-  id: string;
-  name: string;
-  color?: string;
-  sort?: number;
-  createTime?: string;
 }
 
 export interface AlbumGroupItem {
@@ -45,7 +36,6 @@ export interface AlbumAssetItem {
   height?: number;
   groupId?: string;
   groupName?: string;
-  tags?: AlbumTagItem[];
   description?: string;
   capturedAt?: string;
   status: number;
@@ -68,7 +58,6 @@ export interface AlbumAssetForm {
   width?: number;
   height?: number;
   groupId?: string;
-  tagIds?: string[];
   description?: string;
   capturedAt?: string;
   status?: number;
@@ -78,12 +67,5 @@ export interface AlbumGroupForm {
   id?: string;
   name?: string;
   description?: string;
-  sort?: number;
-}
-
-export interface AlbumTagForm {
-  id?: string;
-  name?: string;
-  color?: string;
   sort?: number;
 }

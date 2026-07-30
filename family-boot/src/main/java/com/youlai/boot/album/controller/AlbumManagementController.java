@@ -5,11 +5,8 @@ import com.youlai.boot.album.model.AlbumModels.AlbumAssetQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumBatchGroupRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumBatchTagRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupVO;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagSaveRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagVO;
 import com.youlai.boot.album.service.AlbumManagementService;
 import com.youlai.boot.common.annotation.RepeatSubmit;
 import com.youlai.boot.common.result.PageResult;
@@ -92,16 +89,6 @@ public class AlbumManagementController {
         return Result.judge(albumManagementService.changeAssetGroup(ids, request.getGroupId()));
     }
 
-    @Operation(summary = "批量设置资源标签")
-    @PutMapping("/assets/{ids}/tags")
-    @PreAuthorize("@ss.hasPerm('album:asset:update')")
-    public Result<Void> replaceAssetTags(
-            @PathVariable String ids,
-            @Valid @RequestBody AlbumBatchTagRequest request
-    ) {
-        return Result.judge(albumManagementService.replaceAssetTags(ids, request.getTagIds()));
-    }
-
     @Operation(summary = "相册分组列表")
     @GetMapping("/groups")
     @PreAuthorize("@ss.hasPerm('album:group:list')")
@@ -136,41 +123,5 @@ public class AlbumManagementController {
     @PreAuthorize("@ss.hasPerm('album:group:delete')")
     public Result<Void> deleteGroups(@PathVariable String ids) {
         return Result.judge(albumManagementService.deleteGroups(ids));
-    }
-
-    @Operation(summary = "相册标签列表")
-    @GetMapping("/tags")
-    @PreAuthorize("@ss.hasPerm('album:tag:list')")
-    public Result<List<AlbumTagVO>> listTags(@RequestParam(required = false) String keyword) {
-        return Result.success(albumManagementService.listTags(keyword));
-    }
-
-    @Operation(summary = "新增相册标签")
-    @PostMapping("/tags")
-    @RepeatSubmit
-    @PreAuthorize("@ss.hasPerm('album:tag:create')")
-    public Result<Void> saveTag(@Valid @RequestBody AlbumTagSaveRequest request) {
-        return Result.judge(albumManagementService.saveTag(request));
-    }
-
-    @Operation(summary = "获取相册标签表单")
-    @GetMapping("/tags/{id}/form")
-    @PreAuthorize("@ss.hasPerm('album:tag:update')")
-    public Result<AlbumTagSaveRequest> getTagForm(@PathVariable Long id) {
-        return Result.success(albumManagementService.getTagForm(id));
-    }
-
-    @Operation(summary = "修改相册标签")
-    @PutMapping("/tags/{id}")
-    @PreAuthorize("@ss.hasPerm('album:tag:update')")
-    public Result<Void> updateTag(@PathVariable Long id, @Valid @RequestBody AlbumTagSaveRequest request) {
-        return Result.judge(albumManagementService.updateTag(id, request));
-    }
-
-    @Operation(summary = "删除相册标签")
-    @DeleteMapping("/tags/{ids}")
-    @PreAuthorize("@ss.hasPerm('album:tag:delete')")
-    public Result<Void> deleteTags(@PathVariable String ids) {
-        return Result.judge(albumManagementService.deleteTags(ids));
     }
 }

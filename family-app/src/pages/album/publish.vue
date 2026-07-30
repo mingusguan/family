@@ -86,40 +86,6 @@
       />
       <text class="publish-count">{{ description.length }}/500</text>
     </view>
-
-    <view class="publish-card">
-      <view class="tag-heading">
-        <text class="publish-card__title">添加标签</text>
-        <text class="tag-heading__hint">最多选择 10 个标签</text>
-      </view>
-
-      <view class="tag-create">
-        <text class="tag-create__hash">#</text>
-        <input
-          v-model="customTag"
-          class="tag-create__input"
-          placeholder="创建自定义标签"
-          :maxlength="30"
-          @confirm="createCustomTag"
-        />
-        <text class="tag-create__button" @click="createCustomTag">添加</text>
-      </view>
-
-      <view v-if="tags.length" class="tag-list">
-        <view
-          v-for="tag in tags"
-          :key="tag.id"
-          class="tag-chip"
-          :class="{ 'tag-chip--active': selectedTagIds.includes(tag.id) }"
-          :style="getTagColorStyle(tag.color, selectedTagIds.includes(tag.id))"
-          @click="toggleTag(tag.id)"
-        >
-          #{{ tag.name }}
-        </view>
-      </view>
-      <text v-else class="tag-empty">还没有标签，输入一个名称创建吧</text>
-    </view>
-
     <view class="publish-footer">
       <wd-button
         type="primary"
@@ -154,12 +120,11 @@
 import { computed, ref } from "vue";
 import dayjs from "dayjs";
 import { onLoad } from "@dcloudio/uni-app";
-import AlbumAPI, { type AlbumMediaType, type AlbumTag } from "@/api/album";
+import AlbumAPI, { type AlbumMediaType } from "@/api/album";
 import FamilyAPI, { type FamilyAlbum } from "@/api/family";
 import FileAPI from "@/api/file";
 import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { Storage } from "@/utils/storage";
-import { getTagColorStyle } from "@/utils/tagColor";
 
 interface SelectedMedia {
   type: AlbumMediaType;
@@ -196,9 +161,6 @@ const albumActions = computed(() =>
   }))
 );
 const description = ref("");
-const tags = ref<AlbumTag[]>([]);
-const selectedTagIds = ref<number[]>([]);
-const customTag = ref("");
 const MAX_MEDIA_COUNT = 9;
 const selectedMedia = ref<SelectedMedia[]>([]);
 const submitting = ref(false);
@@ -225,14 +187,6 @@ recorder.onError(() => {
   uni.showToast({ title: "录音失败，请检查麦克风权限", icon: "none" });
 });
 // #endif
-
-async function loadTags() {
-  try {
-    tags.value = await AlbumAPI.listTags();
-  } catch (error) {
-    console.error("读取标签失败", error);
-  }
-}
 
 async function loadAlbums() {
   try {
@@ -493,63 +447,10 @@ function removeMedia(index: number) {
   // #endif
 }
 
-async function saveAndSelectCustomTag(name: string) {
-  const existing = tags.value.find((item) => item.name === name);
-  if (!existing && selectedTagIds.value.length >= 10) {
-    throw new Error("最多选择10个标签");
-  }
-
-  const tag = existing || (await AlbumAPI.createTag(name));
-  if (!tags.value.some((item) => item.id === tag.id)) tags.value.unshift(tag);
-  if (!selectedTagIds.value.includes(tag.id)) {
-    if (selectedTagIds.value.length >= 10) {
-      throw new Error("最多选择10个标签");
-    }
-    selectedTagIds.value.push(tag.id);
-  }
-  customTag.value = "";
-  return tag;
-}
-
-async function createCustomTag() {
-  const name = customTag.value.trim().replace(/^#+/, "");
-  if (!name) {
-    uni.showToast({ title: "请输入标签名称", icon: "none" });
-    return;
-  }
-
-  try {
-    await saveAndSelectCustomTag(name);
-  } catch (error: any) {
-    uni.showToast({
-      title: error?.message || "标签创建失败",
-      icon: "none",
-    });
-  }
-}
-
-function toggleTag(id: number) {
-  const index = selectedTagIds.value.indexOf(id);
-  if (index >= 0) {
-    selectedTagIds.value.splice(index, 1);
-    return;
-  }
-  if (selectedTagIds.value.length >= 10) {
-    uni.showToast({ title: "最多选择10个标签", icon: "none" });
-    return;
-  }
-  selectedTagIds.value.push(id);
-}
-
 async function publish() {
   if (!selectedMedia.value.length || submitting.value) return;
   submitting.value = true;
   try {
-    const pendingTagName = customTag.value.trim().replace(/^#+/, "");
-    if (pendingTagName) {
-      uploadProgress.value = "正在保存标签";
-      await saveAndSelectCustomTag(pendingTagName);
-    }
 
     const uploadedFiles: Array<{
       media: SelectedMedia;
@@ -585,7 +486,6 @@ async function publish() {
         height: media.height,
         capturedAt: fileInfo.capturedAt || fallbackCapturedAt,
       })),
-      tagIds: selectedTagIds.value,
       description: description.value.trim() || undefined,
       capturedAt: fallbackCapturedAt,
     });
@@ -726,7 +626,6 @@ onLoad((options) => {
     return;
   }
   loadAlbums();
-  loadTags();
 });
 </script>
 
@@ -1039,76 +938,6 @@ onLoad((options) => {
   font-size: 20rpx;
   color: #aaa3b2;
   text-align: right;
-}
-
-.tag-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.tag-heading__hint {
-  font-size: 19rpx;
-  color: #aaa3b2;
-}
-
-.tag-create {
-  display: flex;
-  align-items: center;
-  height: 82rpx;
-  padding: 0 20rpx;
-  margin-top: 24rpx;
-  background: #f5f2fb;
-  border-radius: 21rpx;
-}
-
-.tag-create__hash {
-  font-size: 31rpx;
-  font-weight: 650;
-  color: #7668dc;
-}
-
-.tag-create__input {
-  flex: 1;
-  height: 100%;
-  margin-left: 10rpx;
-  font-size: 24rpx;
-}
-
-.tag-create__button {
-  padding: 10rpx 15rpx;
-  font-size: 22rpx;
-  color: #7668dc;
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14rpx;
-  margin-top: 24rpx;
-}
-
-.tag-chip {
-  padding: 12rpx 18rpx;
-  font-size: 22rpx;
-  color: #776f83;
-  background: #f1eff5;
-  border: 1rpx solid transparent;
-  border-radius: 999rpx;
-}
-
-.tag-chip--active {
-  color: #6f60d3;
-  background: #ece8ff;
-  border-color: #a99fed;
-}
-
-.tag-empty {
-  display: block;
-  padding: 30rpx 0 12rpx;
-  font-size: 22rpx;
-  color: #a59eac;
-  text-align: center;
 }
 
 .publish-footer {

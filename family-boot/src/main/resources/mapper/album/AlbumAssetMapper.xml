@@ -22,12 +22,6 @@
         <if test="query.keyword != null and query.keyword != ''">
           AND (
             a.description LIKE CONCAT('%', #{query.keyword}, '%')
-            <if test="taggedAssetIds != null and taggedAssetIds.size() > 0">
-              OR a.id IN
-              <foreach collection="taggedAssetIds" item="assetId" open="(" separator="," close=")">
-                #{assetId}
-              </foreach>
-            </if>
           )
         </if>
         <if test="query.startDate != null and query.endDate != null">

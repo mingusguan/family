@@ -122,7 +122,6 @@
                   </text>
                   <view class="moment-card__footer">
                     <text>{{ formatMomentTime(moment) }}</text>
-                    <text v-if="moment.tags?.length">#{{ moment.tags[0].name }}</text>
                   </view>
                 </view>
               </view>

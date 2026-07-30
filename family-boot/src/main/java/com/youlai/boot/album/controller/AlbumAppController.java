@@ -6,8 +6,6 @@ import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagCreateRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagVO;
 import com.youlai.boot.album.service.AlbumManagementService;
 import com.youlai.boot.common.annotation.RepeatSubmit;
 import com.youlai.boot.common.result.PageResult;
@@ -25,8 +23,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * APP 客户端精彩时刻接口。
@@ -81,21 +77,6 @@ public class AlbumAppController {
     @RepeatSubmit
     public Result<Void> saveMoment(@Valid @RequestBody AlbumMomentCreateRequest request) {
         return Result.judge(albumManagementService.saveMoment(request));
-    }
-
-    /** 获取可选择的相册标签。 */
-    @Operation(summary = "相册标签列表")
-    @GetMapping("/tags")
-    public Result<List<AlbumTagVO>> listTags(@RequestParam(required = false) String keyword) {
-        return Result.success(albumManagementService.listTags(keyword));
-    }
-
-    /** 创建或取得同名相册标签。 */
-    @Operation(summary = "创建自定义相册标签")
-    @PostMapping("/tags")
-    @RepeatSubmit
-    public Result<AlbumTagVO> createTag(@Valid @RequestBody AlbumTagCreateRequest request) {
-        return Result.success(albumManagementService.getOrCreateTag(request));
     }
     /**
      * 删除当前用户自己发布的精彩时刻。

@@ -8,9 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.youlai.boot.album.enums.AlbumMediaTypeEnum;
 import com.youlai.boot.album.mapper.AlbumAssetMapper;
-import com.youlai.boot.album.mapper.AlbumAssetTagMapper;
 import com.youlai.boot.album.mapper.AlbumGroupMapper;
-import com.youlai.boot.album.mapper.AlbumTagMapper;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetVO;
@@ -22,13 +20,8 @@ import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupVO;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagCreateRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagSaveRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagVO;
 import com.youlai.boot.album.model.entity.AlbumAsset;
-import com.youlai.boot.album.model.entity.AlbumAssetTag;
 import com.youlai.boot.album.model.entity.AlbumGroup;
-import com.youlai.boot.album.model.entity.AlbumTag;
 import com.youlai.boot.album.service.AlbumManagementService;
 import com.youlai.boot.appuser.model.entity.AppUser;
 import com.youlai.boot.appuser.service.AppUserService;
@@ -53,7 +46,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -65,8 +57,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
     private final AlbumAssetMapper assetMapper;
     private final AlbumGroupMapper groupMapper;
-    private final AlbumTagMapper tagMapper;
-    private final AlbumAssetTagMapper assetTagMapper;
     private final AppUserService appUserService;
     private final FileService fileService;
     private final FamilyService familyService;
@@ -74,13 +64,8 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
     @Override
     public IPage<AlbumAssetVO> getAssetPage(AlbumAssetQuery query) {
-        List<Long> taggedAssetIds = resolveAssetIdsByTagId(query.getTagId());
-        if (query.getTagId() != null && taggedAssetIds.isEmpty()) {
-            return emptyAssetPage(query);
-        }
 
         String contentKeyword = StrUtil.trim(query.getContentKeyword());
-        List<Long> contentTagAssetIds = resolveAssetIdsByTagKeyword(contentKeyword);
         List<YearMonth> monthFilters = parseMonthFilters(query.getMonths());
         validateDateRange(query);
         LocalDateTime startAt = query.getStartDate() == null ? null : query.getStartDate().atStartOfDay();
@@ -94,17 +79,11 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
                 .eq(query.getAlbumId() != null, AlbumAsset::getAlbumId, query.getAlbumId())
                 .eq(query.getGroupId() != null, AlbumAsset::getGroupId, query.getGroupId())
                 .eq(query.getStatus() != null, AlbumAsset::getStatus, query.getStatus())
-                .in(CollectionUtil.isNotEmpty(taggedAssetIds), AlbumAsset::getId, taggedAssetIds)
                 .and(StrUtil.isNotBlank(query.getKeyword()), condition -> condition
                         .like(AlbumAsset::getOriginalName, query.getKeyword())
                         .or()
                         .like(AlbumAsset::getDescription, query.getKeyword()))
-                .and(StrUtil.isNotBlank(contentKeyword), condition -> {
-                    condition.like(AlbumAsset::getDescription, contentKeyword);
-                    if (CollectionUtil.isNotEmpty(contentTagAssetIds)) {
-                        condition.or().in(AlbumAsset::getId, contentTagAssetIds);
-                    }
-                })
+                .like(StrUtil.isNotBlank(contentKeyword), AlbumAsset::getDescription, contentKeyword)
                 .and(startAt != null, condition -> condition
                         .ge(AlbumAsset::getCapturedAt, startAt)
                         .lt(AlbumAsset::getCapturedAt, endAt)
@@ -166,12 +145,10 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
         String keyword = normalizeContentKeyword(query.getKeyword());
         query.setKeyword(keyword);
-        List<Long> taggedAssetIds = resolveAssetIdsByTagKeyword(keyword);
         Long currentUserId = Boolean.TRUE.equals(query.getMine()) ? requireCurrentUserId() : null;
         Page<AlbumMomentBatchRow> batchPage = assetMapper.selectMomentBatchPage(
                 new Page<>(query.getPageNum(), query.getPageSize()),
                 query,
-                taggedAssetIds,
                 currentUserId
         );
         Page<AlbumMomentBatchVO> result = new Page<>(
@@ -224,7 +201,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         detail.setFamilyId(familyId);
         detail.setAlbumId(albumId);
         detail.setDescription(first.getDescription());
-        detail.setTags(mergeTags(assets));
         detail.setCapturedAt(first.getCapturedAt());
         detail.setCreateTime(first.getCreateTime());
         detail.setAssets(assets);
@@ -310,7 +286,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         vo.setFamilyId(row.getFamilyId());
         vo.setAlbumId(row.getAlbumId());
         vo.setDescription(row.getDescription());
-        vo.setTags(mergeTags(assets));
         vo.setCapturedAt(row.getCapturedAt());
         vo.setCreateTime(row.getCreateTime());
         vo.setAssetCount(row.getAssetCount());
@@ -325,58 +300,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
             return cover;
         }).toList());
         return vo;
-    }
-
-    private List<AlbumTagVO> mergeTags(List<AlbumAssetVO> assets) {
-        return assets.stream()
-                .flatMap(asset -> CollectionUtil.emptyIfNull(asset.getTags()).stream())
-                .collect(Collectors.toMap(
-                        AlbumTagVO::getId,
-                        Function.identity(),
-                        (first, ignored) -> first,
-                        LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
-    }
-    private List<Long> resolveAssetIdsByTagId(Long tagId) {
-        if (tagId == null) {
-            return Collections.emptyList();
-        }
-        return assetTagMapper.selectList(
-                        new LambdaQueryWrapper<AlbumAssetTag>()
-                                .eq(AlbumAssetTag::getTagId, tagId)
-                                .select(AlbumAssetTag::getAssetId)
-                ).stream()
-                .map(AlbumAssetTag::getAssetId)
-                .distinct()
-                .toList();
-    }
-
-    private List<Long> resolveAssetIdsByTagKeyword(String keyword) {
-        if (StrUtil.isBlank(keyword)) {
-            return Collections.emptyList();
-        }
-        List<Long> tagIds = tagMapper.selectList(
-                        new LambdaQueryWrapper<AlbumTag>()
-                                .like(AlbumTag::getName, keyword)
-                                .select(AlbumTag::getId)
-                ).stream()
-                .map(AlbumTag::getId)
-                .toList();
-        if (tagIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        // 标签和资源分表查询后一次性收集资源 ID，避免列表搜索引入多表 Join。
-        return assetTagMapper.selectList(
-                        new LambdaQueryWrapper<AlbumAssetTag>()
-                                .in(AlbumAssetTag::getTagId, tagIds)
-                                .select(AlbumAssetTag::getAssetId)
-                ).stream()
-                .map(AlbumAssetTag::getAssetId)
-                .distinct()
-                .toList();
     }
 
     private List<YearMonth> parseMonthFilters(List<String> months) {
@@ -406,7 +329,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
     private String normalizeContentKeyword(String keyword) {
         String normalized = StrUtil.trim(keyword);
-        return StrUtil.isBlank(normalized) ? null : normalized.replaceFirst("^#+", "");
+        return StrUtil.isBlank(normalized) ? null : normalized;
     }
 
     @Override
@@ -416,9 +339,8 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         validateOwner(uploaderId);
         familyService.ensureCurrentUserMember(request.getFamilyId());
         familyService.ensureAlbumBelongsToFamily(request.getAlbumId(), request.getFamilyId());
-        validateTags(request.getTagIds());
         wxContentSecurityService.checkText(uploaderId, collectPublishedText(request));
-        // 同一批次资源共用家庭、相册、标签和描述，统一组装后使用 MyBatis-Plus 批量写入。
+        // 同一批次资源共用家庭、相册和描述，统一组装后使用 MyBatis-Plus 批量写入。
         String uploadBatchId = UUID.randomUUID().toString().replace("-", "");
         List<AlbumAsset> assets = request.getResources().stream().map(resource -> {
             AlbumAsset asset = AlbumAsset.createMoment(uploaderId, request, resource);
@@ -426,11 +348,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
             asset.changeGroup(resolveMediaGroupId(resource.getMediaType()));
             return asset;
         }).toList();
-        boolean saved = Db.saveBatch(assets);
-        if (saved) {
-            replaceRelations(assets.stream().map(AlbumAsset::getId).toList(), request.getTagIds());
-        }
-        return saved;
+        return Db.saveBatch(assets);
     }
 
     @Override
@@ -441,44 +359,13 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         if (!Objects.equals(asset.getUploaderId(), currentUserId)) {
             throw new BusinessException("只能删除自己发布的精彩时刻");
         }
-        assetTagMapper.delete(new LambdaQueryWrapper<AlbumAssetTag>().eq(AlbumAssetTag::getAssetId, id));
         // 客户端删除只移除相册元数据，对象存储文件保留，避免误删其他业务引用。
         return assetMapper.deleteById(id) > 0;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public AlbumTagVO getOrCreateTag(AlbumTagCreateRequest request) {
-        String name = request.getName().trim().replaceFirst("^#+", "");
-        if (StrUtil.isBlank(name)) {
-            throw new BusinessException("标签名称不能为空");
-        }
-        wxContentSecurityService.checkText(requireCurrentUserId(), List.of(name));
-        AlbumTag existing = tagMapper.selectOne(new LambdaQueryWrapper<AlbumTag>()
-                .eq(AlbumTag::getName, name)
-                .last("LIMIT 1"));
-        if (existing != null) {
-            return toTagVO(existing);
-        }
-        AlbumTagSaveRequest saveRequest = new AlbumTagSaveRequest();
-        saveRequest.setName(name);
-        saveRequest.setColor("#7C6FF6");
-        saveRequest.setSort(0);
-        AlbumTag tag = AlbumTag.create(saveRequest);
-        tagMapper.insert(tag);
-        return toTagVO(tag);
     }
     @Override
     public AlbumAssetSaveRequest getAssetForm(Long id) {
         AlbumAsset asset = requireAsset(id);
         AlbumAssetSaveRequest request = toAssetForm(asset);
-        request.setTagIds(assetTagMapper.selectList(
-                        new LambdaQueryWrapper<AlbumAssetTag>()
-                                .eq(AlbumAssetTag::getAssetId, id)
-                                .select(AlbumAssetTag::getTagId)
-                ).stream()
-                .map(AlbumAssetTag::getTagId)
-                .toList());
         return request;
     }
 
@@ -486,15 +373,10 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
     @Transactional
     public boolean saveAsset(AlbumAssetSaveRequest request) {
         validateOwner(request.getUploaderId());
-        validateTags(request.getTagIds());
         AlbumAsset asset = AlbumAsset.create(request);
         // 资源分组由媒体类型统一决定，避免不同入口提交不一致的分组。
         asset.changeGroup(resolveMediaGroupId(request.getMediaType()));
-        boolean saved = assetMapper.insert(asset) > 0;
-        if (saved) {
-            replaceRelations(List.of(asset.getId()), request.getTagIds());
-        }
-        return saved;
+        return assetMapper.insert(asset) > 0;
     }
 
     @Override
@@ -502,22 +384,16 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
     public boolean updateAsset(Long id, AlbumAssetSaveRequest request) {
         AlbumAsset asset = requireAsset(id);
         validateOwner(request.getUploaderId());
-        validateTags(request.getTagIds());
         asset.updateMetadata(request);
         // 更换资源文件后同步刷新系统分组。
         asset.changeGroup(resolveMediaGroupId(request.getMediaType()));
-        boolean updated = assetMapper.updateById(asset) > 0;
-        if (updated) {
-            replaceRelations(List.of(id), request.getTagIds());
-        }
-        return updated;
+        return assetMapper.updateById(asset) > 0;
     }
 
     @Override
     @Transactional
     public boolean deleteAssets(String ids) {
         List<Long> idList = parseIds(ids);
-        assetTagMapper.delete(new LambdaQueryWrapper<AlbumAssetTag>().in(AlbumAssetTag::getAssetId, idList));
         // 后台删除仅移除资源元数据，云存储文件保留，避免误删被其他业务引用的对象
         return assetMapper.deleteByIds(idList) > 0;
     }
@@ -532,16 +408,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
 
         // 归属校验通过后使用单条 SQL 批量变更，避免循环更新数据库。
         return assetMapper.updateGroupBatch(idList, groupId) == idList.size();
-    }
-
-    @Override
-    @Transactional
-    public boolean replaceAssetTags(String ids, List<Long> tagIds) {
-        List<Long> idList = parseIds(ids);
-        requireAssets(idList);
-        validateTags(tagIds);
-        replaceRelations(idList, tagIds);
-        return true;
     }
 
     @Override
@@ -589,48 +455,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         return groupMapper.deleteByIds(idList) > 0;
     }
 
-    @Override
-    public List<AlbumTagVO> listTags(String keyword) {
-        List<AlbumTag> tags = tagMapper.selectList(new LambdaQueryWrapper<AlbumTag>()
-                .like(StrUtil.isNotBlank(keyword), AlbumTag::getName, keyword)
-                .orderByAsc(AlbumTag::getSort)
-                .orderByDesc(AlbumTag::getCreateTime));
-        return tags.stream().map(this::toTagVO).toList();
-    }
-
-    @Override
-    public AlbumTagSaveRequest getTagForm(Long id) {
-        AlbumTag tag = requireTag(id);
-        AlbumTagSaveRequest request = new AlbumTagSaveRequest();
-        request.setId(tag.getId());
-        request.setName(tag.getName());
-        request.setColor(tag.getColor());
-        request.setSort(tag.getSort());
-        return request;
-    }
-
-    @Override
-    public boolean saveTag(AlbumTagSaveRequest request) {
-        validateTagName(request.getName(), null);
-        return tagMapper.insert(AlbumTag.create(request)) > 0;
-    }
-
-    @Override
-    public boolean updateTag(Long id, AlbumTagSaveRequest request) {
-        AlbumTag tag = requireTag(id);
-        validateTagName(request.getName(), id);
-        tag.updateMetadata(request);
-        return tagMapper.updateById(tag) > 0;
-    }
-
-    @Override
-    @Transactional
-    public boolean deleteTags(String ids) {
-        List<Long> idList = parseIds(ids);
-        assetTagMapper.delete(new LambdaQueryWrapper<AlbumAssetTag>().in(AlbumAssetTag::getTagId, idList));
-        return tagMapper.deleteByIds(idList) > 0;
-    }
-
     private IPage<AlbumAssetVO> assembleAssetPage(Page<AlbumAsset> entityPage) {
         Page<AlbumAssetVO> result = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
         List<AlbumAsset> assets = entityPage.getRecords();
@@ -638,69 +462,25 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
             result.setRecords(Collections.emptyList());
             return result;
         }
-
-        Set<Long> assetIds = assets.stream().map(AlbumAsset::getId).collect(Collectors.toSet());
         Set<Long> groupIds = assets.stream().map(AlbumAsset::getGroupId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, String> groupNames = groupIds.isEmpty()
                 ? Collections.emptyMap()
                 : groupMapper.selectByIds(groupIds).stream().collect(Collectors.toMap(AlbumGroup::getId, AlbumGroup::getName));
-
-        List<AlbumAssetTag> relations = assetTagMapper.selectList(
-                new LambdaQueryWrapper<AlbumAssetTag>().in(AlbumAssetTag::getAssetId, assetIds)
-        );
-        Map<Long, List<Long>> tagIdsByAsset = relations.stream().collect(Collectors.groupingBy(
-                AlbumAssetTag::getAssetId,
-                LinkedHashMap::new,
-                Collectors.mapping(AlbumAssetTag::getTagId, Collectors.toList())
-        ));
-        Set<Long> tagIds = relations.stream().map(AlbumAssetTag::getTagId).collect(Collectors.toSet());
-        Map<Long, AlbumTag> tags = tagIds.isEmpty()
-                ? Collections.emptyMap()
-                : tagMapper.selectByIds(tagIds).stream().collect(Collectors.toMap(AlbumTag::getId, Function.identity()));
         Map<Long, String> uploaderNames = getUserNames(assets.stream().map(AlbumAsset::getUploaderId).collect(Collectors.toSet()));
 
-        // 分页主表查询完成后，批量组装分组、标签和上传用户，避免多表 Join 与 N+1 查询
+        // 分页主表查询完成后，批量组装分组和上传用户，避免多表 Join 与 N+1 查询
         result.setRecords(assets.stream().map(asset -> toAssetVO(
                 asset,
                 groupNames.get(asset.getGroupId()),
-                tagIdsByAsset.getOrDefault(asset.getId(), Collections.emptyList()).stream()
-                        .map(tags::get)
-                        .filter(Objects::nonNull)
-                        .map(this::toTagVO)
-                        .toList(),
                 uploaderNames.get(asset.getUploaderId())
         )).toList());
         return result;
-    }
-
-    private IPage<AlbumAssetVO> emptyAssetPage(AlbumAssetQuery query) {
-        Page<AlbumAssetVO> page = new Page<>(query.getPageNum(), query.getPageSize(), 0);
-        page.setRecords(Collections.emptyList());
-        return page;
-    }
-
-    private void validateTags(List<Long> tagIds) {
-        if (CollectionUtil.isEmpty(tagIds)) {
-            return;
-        }
-        List<Long> distinctIds = tagIds.stream().filter(Objects::nonNull).distinct().toList();
-        List<AlbumTag> tags = tagMapper.selectByIds(distinctIds);
-        if (tags.size() != distinctIds.size()) {
-            throw new BusinessException("部分相册标签不存在");
-        }
     }
 
     private List<String> collectPublishedText(AlbumMomentCreateRequest request) {
         List<String> contents = new ArrayList<>();
         if (StrUtil.isNotBlank(request.getDescription())) {
             contents.add(request.getDescription());
-        }
-        if (CollectionUtil.isNotEmpty(request.getTagIds())) {
-            // 发布时再次检测已选标签，确保后台改名或历史标签也不能绕过内容安全校验。
-            tagMapper.selectByIds(request.getTagIds()).stream()
-                    .map(AlbumTag::getName)
-                    .filter(StrUtil::isNotBlank)
-                    .forEach(contents::add);
         }
         return contents;
     }
@@ -716,22 +496,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
             throw new BusinessException("缺少“" + mediaType.getLabel() + "”系统分组，请先执行相册分组初始化SQL");
         }
         return group.getId();
-    }
-
-    private void replaceRelations(List<Long> assetIds, List<Long> tagIds) {
-        assetTagMapper.delete(new LambdaQueryWrapper<AlbumAssetTag>().in(AlbumAssetTag::getAssetId, assetIds));
-        if (CollectionUtil.isEmpty(tagIds)) {
-            return;
-        }
-        List<Long> distinctTagIds = tagIds.stream().filter(Objects::nonNull).distinct().toList();
-        List<AlbumAssetTag> relations = new ArrayList<>(assetIds.size() * distinctTagIds.size());
-        for (Long assetId : assetIds) {
-            for (Long tagId : distinctTagIds) {
-                relations.add(new AlbumAssetTag(assetId, tagId));
-            }
-        }
-        // 资源与标签是多对多关系，统一组装后执行单条批量 SQL
-        assetTagMapper.insertBatch(relations);
     }
 
     private Long requireCurrentUserId() {
@@ -756,15 +520,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         }
     }
 
-    private void validateTagName(String name, Long excludeId) {
-        long count = tagMapper.selectCount(new LambdaQueryWrapper<AlbumTag>()
-                .eq(AlbumTag::getName, name)
-                .ne(excludeId != null, AlbumTag::getId, excludeId));
-        if (count > 0) {
-            throw new BusinessException("已存在同名标签");
-        }
-    }
-
     private AlbumAsset requireAsset(Long id) {
         AlbumAsset asset = assetMapper.selectById(id);
         if (asset == null) {
@@ -773,28 +528,12 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         return asset;
     }
 
-    private List<AlbumAsset> requireAssets(List<Long> ids) {
-        List<AlbumAsset> assets = assetMapper.selectByIds(ids);
-        if (assets.size() != ids.size()) {
-            throw new BusinessException("部分相册资源不存在");
-        }
-        return assets;
-    }
-
     private AlbumGroup requireGroup(Long id) {
         AlbumGroup group = groupMapper.selectById(id);
         if (group == null) {
             throw new BusinessException("相册分组不存在");
         }
         return group;
-    }
-
-    private AlbumTag requireTag(Long id) {
-        AlbumTag tag = tagMapper.selectById(id);
-        if (tag == null) {
-            throw new BusinessException("相册标签不存在");
-        }
-        return tag;
     }
 
     private List<Long> parseIds(String ids) {
@@ -851,7 +590,7 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         return request;
     }
 
-    private AlbumAssetVO toAssetVO(AlbumAsset asset, String groupName, List<AlbumTagVO> tags, String uploaderName) {
+    private AlbumAssetVO toAssetVO(AlbumAsset asset, String groupName, String uploaderName) {
         AlbumAssetVO vo = new AlbumAssetVO();
         vo.setId(asset.getId());
         vo.setUploadBatchId(asset.getUploadBatchId());
@@ -873,7 +612,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         vo.setHeight(asset.getHeight());
         vo.setGroupId(asset.getGroupId());
         vo.setGroupName(groupName);
-        vo.setTags(tags);
         vo.setDescription(asset.getDescription());
         vo.setCapturedAt(asset.getCapturedAt());
         vo.setStatus(asset.getStatus());
@@ -896,16 +634,6 @@ public class AlbumManagementServiceImpl implements AlbumManagementService {
         vo.setDescription(group.getDescription());
         vo.setSort(group.getSort());
         vo.setCreateTime(group.getCreateTime());
-        return vo;
-    }
-
-    private AlbumTagVO toTagVO(AlbumTag tag) {
-        AlbumTagVO vo = new AlbumTagVO();
-        vo.setId(tag.getId());
-        vo.setName(tag.getName());
-        vo.setColor(tag.getColor());
-        vo.setSort(tag.getSort());
-        vo.setCreateTime(tag.getCreateTime());
         return vo;
     }
 }

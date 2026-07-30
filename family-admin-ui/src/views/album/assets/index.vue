@@ -49,17 +49,6 @@
             <el-option v-for="item in groups" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="标签" prop="tagId">
-          <el-select
-            v-model="queryParams.tagId"
-            placeholder="全部"
-            clearable
-            filterable
-            style="width: 150px"
-          >
-            <el-option v-for="item in tags" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 100px">
             <el-option label="正常" :value="1" />
@@ -140,19 +129,6 @@
         </el-table-column>
         <el-table-column prop="groupName" label="分组" min-width="110">
           <template #default="{ row }">{{ row.groupName || "未分组" }}</template>
-        </el-table-column>
-        <el-table-column label="标签" min-width="170">
-          <template #default="{ row }">
-            <span
-              v-for="tag in row.tags || []"
-              :key="tag.id"
-              class="album-tag-badge tag-item"
-              :style="{ '--album-tag-color': tag.color || '#6f60ce' }"
-            >
-              #{{ tag.name }}
-            </span>
-            <span v-if="!row.tags?.length" class="text-muted">无</span>
-          </template>
         </el-table-column>
         <el-table-column label="大小/时长" width="130">
           <template #default="{ row }">
@@ -302,25 +278,6 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="标签" prop="tagIds">
-              <el-select
-                v-model="formData.tagIds"
-                multiple
-                clearable
-                filterable
-                placeholder="请选择"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="item in tags"
-                  :key="item.id"
-                  :label="item.name"
-                  :value="item.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
             <el-form-item label="拍摄时间">
               <el-date-picker
                 v-model="formData.capturedAt"
@@ -419,7 +376,6 @@ import type {
   AlbumAssetQuery,
   AlbumGroupItem,
   AlbumMediaType,
-  AlbumTagItem,
 } from "@/api/album";
 
 defineOptions({ name: "AlbumAsset" });
@@ -431,7 +387,6 @@ const submitting = ref(false);
 const uploading = ref(false);
 const selectedIds = ref<string[]>([]);
 const groups = ref<AlbumGroupItem[]>([]);
-const tags = ref<AlbumTagItem[]>([]);
 const userOptions = ref<OptionItem[]>([]);
 
 const queryParams = reactive<AlbumAssetQuery>({ pageNum: 1, pageSize: 10 });
@@ -447,7 +402,7 @@ const previewDialog = reactive<{
   title: "资源预览",
   url: "",
 });
-const formData = reactive<AlbumAssetForm>({ status: 1, tagIds: [] });
+const formData = reactive<AlbumAssetForm>({ status: 1 });
 
 const recognizedGroupName = computed(() => {
   const group = groups.value.find((item) => String(item.id) === String(formData.groupId));
@@ -461,13 +416,11 @@ const rules: FormRules = {
 };
 
 async function loadOptions() {
-  const [groupList, tagList, users] = await Promise.all([
+  const [groupList, users] = await Promise.all([
     AlbumAPI.getGroups(),
-    AlbumAPI.getTags(),
     AppUserAPI.getOptions(),
   ]);
   groups.value = groupList || [];
-  tags.value = tagList || [];
   userOptions.value = users || [];
 }
 
@@ -612,7 +565,6 @@ function resetForm() {
     width: undefined,
     height: undefined,
     groupId: undefined,
-    tagIds: [],
     description: undefined,
     capturedAt: undefined,
     status: 1,
@@ -681,29 +633,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.album-tag-badge {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 3px 8px;
-  overflow: hidden;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--album-tag-color, #6f60ce);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: #efecff;
-  background: color-mix(in srgb, var(--album-tag-color, #6f60ce) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--album-tag-color, #6f60ce) 24%, transparent);
-  border-radius: 999px;
-}
 .media-preview {
   width: 56px;
   height: 56px;
   border-radius: 6px;
-}
-.tag-item {
-  margin: 2px 4px 2px 0;
 }
 .text-muted {
   color: var(--el-text-color-secondary);

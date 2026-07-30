@@ -5,8 +5,6 @@ import type {
   AlbumAssetQuery,
   AlbumGroupForm,
   AlbumGroupItem,
-  AlbumTagForm,
-  AlbumTagItem,
 } from "./types";
 
 const BASE_URL = "/api/v1/album";
@@ -37,9 +35,6 @@ const AlbumAPI = {
   changeAssetGroup(ids: string, groupId?: string) {
     return request({ url: `${BASE_URL}/assets/${ids}/group`, method: "put", data: { groupId } });
   },
-  replaceAssetTags(ids: string, tagIds: string[]) {
-    return request({ url: `${BASE_URL}/assets/${ids}/tags`, method: "put", data: { tagIds } });
-  },
   getGroups(params?: { keyword?: string }) {
     return request<unknown, AlbumGroupItem[]>({
       url: `${BASE_URL}/groups`,
@@ -61,28 +56,6 @@ const AlbumAPI = {
   },
   deleteGroups(ids: string) {
     return request({ url: `${BASE_URL}/groups/${ids}`, method: "delete" });
-  },
-  getTags(params?: { keyword?: string }) {
-    return request<unknown, AlbumTagItem[]>({
-      url: `${BASE_URL}/tags`,
-      method: "get",
-      params,
-    });
-  },
-  getTagForm(id: string) {
-    return request<unknown, AlbumTagForm>({
-      url: `${BASE_URL}/tags/${id}/form`,
-      method: "get",
-    });
-  },
-  createTag(data: AlbumTagForm) {
-    return request({ url: `${BASE_URL}/tags`, method: "post", data });
-  },
-  updateTag(id: string, data: AlbumTagForm) {
-    return request({ url: `${BASE_URL}/tags/${id}`, method: "put", data });
-  },
-  deleteTags(ids: string) {
-    return request({ url: `${BASE_URL}/tags/${ids}`, method: "delete" });
   },
 };
 

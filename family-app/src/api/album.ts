@@ -51,22 +51,6 @@ const AlbumAPI = {
       method: "DELETE",
     });
   },
-
-  listTags(keyword?: string) {
-    return request<AlbumTag[]>({
-      url: ALBUM_BASE_URL + "/tags",
-      method: "GET",
-      data: keyword ? { keyword } : undefined,
-    });
-  },
-
-  createTag(name: string) {
-    return request<AlbumTag>({
-      url: ALBUM_BASE_URL + "/tags",
-      method: "POST",
-      data: { name },
-    });
-  },
 };
 
 export default AlbumAPI;
@@ -88,7 +72,6 @@ export interface AlbumMomentCreateRequest {
   familyId: number;
   albumId: number;
   resources: AlbumMomentResourceRequest[];
-  tagIds?: number[];
   description?: string;
   capturedAt?: string;
 }
@@ -106,13 +89,6 @@ export interface AlbumMomentResourceRequest {
   capturedAt?: string;
 }
 
-export interface AlbumTag {
-  id: number;
-  name: string;
-  color?: string;
-}
-
-
 export interface AlbumMomentCover {
   mediaType: AlbumMediaType;
   previewUrl?: string;
@@ -125,7 +101,6 @@ export interface AlbumMomentBatch {
   familyId: number;
   albumId: number;
   description?: string;
-  tags?: AlbumTag[];
   capturedAt?: string;
   createTime: string;
   assetCount: number | string;
@@ -139,7 +114,6 @@ export interface AlbumMomentDetail {
   familyId: number;
   albumId: number;
   description?: string;
-  tags?: AlbumTag[];
   capturedAt?: string;
   createTime: string;
   assets: AlbumMoment[];
@@ -162,7 +136,6 @@ export interface AlbumMoment {
   duration?: number;
   width?: number;
   height?: number;
-  tags?: AlbumTag[];
   description?: string;
   capturedAt?: string;
   createTime: string;

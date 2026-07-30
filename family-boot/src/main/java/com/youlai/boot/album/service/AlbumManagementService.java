@@ -10,9 +10,6 @@ import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumGroupVO;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagCreateRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagSaveRequest;
-import com.youlai.boot.album.model.AlbumModels.AlbumTagVO;
 
 import java.util.List;
 
@@ -33,8 +30,6 @@ public interface AlbumManagementService {
 
     boolean deleteOwnMoment(Long id);
 
-    AlbumTagVO getOrCreateTag(AlbumTagCreateRequest request);
-
     AlbumAssetSaveRequest getAssetForm(Long id);
 
     boolean saveAsset(AlbumAssetSaveRequest request);
@@ -45,8 +40,6 @@ public interface AlbumManagementService {
 
     boolean changeAssetGroup(String ids, Long groupId);
 
-    boolean replaceAssetTags(String ids, List<Long> tagIds);
-
     List<AlbumGroupVO> listGroups(String keyword);
 
     AlbumGroupSaveRequest getGroupForm(Long id);
@@ -56,14 +49,4 @@ public interface AlbumManagementService {
     boolean updateGroup(Long id, AlbumGroupSaveRequest request);
 
     boolean deleteGroups(String ids);
-
-    List<AlbumTagVO> listTags(String keyword);
-
-    AlbumTagSaveRequest getTagForm(Long id);
-
-    boolean saveTag(AlbumTagSaveRequest request);
-
-    boolean updateTag(Long id, AlbumTagSaveRequest request);
-
-    boolean deleteTags(String ids);
 }

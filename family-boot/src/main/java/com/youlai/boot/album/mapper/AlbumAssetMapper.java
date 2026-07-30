@@ -19,10 +19,8 @@ public interface AlbumAssetMapper extends BaseMapper<AlbumAsset> {
     Page<AlbumMomentBatchRow> selectMomentBatchPage(
             Page<AlbumMomentBatchRow> page,
             @Param("query") AlbumMomentQuery query,
-            @Param("taggedAssetIds") List<Long> taggedAssetIds,
             @Param("currentUserId") Long currentUserId
     );
-
 
     int updateGroupBatch(@Param("assetIds") List<Long> assetIds, @Param("groupId") Long groupId);
 }
