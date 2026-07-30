@@ -21,15 +21,15 @@ const FileAPI = {
    *
    * @param filePath
    */
-  upload(filePath: string, rawFile?: File): Promise<FileInfo> {
+  upload(filePath: string, rawFile?: File, onProgress?: UploadProgressCallback): Promise<FileInfo> {
     // #ifdef H5
     if (rawFile) {
-      return this.uploadBrowserFile(rawFile);
+      return this.uploadBrowserFile(rawFile, onProgress);
     }
     // #endif
 
     return new Promise((resolve, reject) => {
-      uni.uploadFile({
+      const uploadTask = uni.uploadFile({
         url: this.uploadUrl,
         filePath: filePath,
         name: "file",
@@ -67,38 +67,55 @@ const FileAPI = {
           });
         },
       });
+      uploadTask.onProgressUpdate((event) => onProgress?.(event.progress));
     });
   },
   // #ifdef H5
   /** 使用浏览器原生 File 对象上传，兼容 H5 自定义照片/视频选择器。 */
-  async uploadBrowserFile(rawFile: File): Promise<FileInfo> {
+  uploadBrowserFile(rawFile: File, onProgress?: UploadProgressCallback): Promise<FileInfo> {
     const formData = new FormData();
     formData.append("file", rawFile, rawFile.name);
-    try {
-      const response = await fetch(this.uploadUrl, {
-        method: "POST",
-        headers: {
-          Authorization: getAccessToken() ? `Bearer ${getAccessToken()}` : "",
-        },
-        body: formData,
-      });
-      const resData = (await response.json()) as ResponseData<FileInfo>;
-      if (resData.code === ApiCode.SUCCESS) {
-        return resData.data;
-      }
-      throw { message: resData.msg || "文件上传失败", code: resData.code };
-    } catch (error: any) {
+    return new Promise<FileInfo>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", this.uploadUrl);
+      const accessToken = getAccessToken();
+      if (accessToken) xhr.setRequestHeader("Authorization", "Bearer " + accessToken);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress?.(Math.round((event.loaded * 100) / event.total));
+        }
+      };
+      xhr.onload = () => {
+        try {
+          const resData = JSON.parse(xhr.responseText) as ResponseData<FileInfo>;
+          if (xhr.status >= 200 && xhr.status < 300 && resData.code === ApiCode.SUCCESS) {
+            onProgress?.(100);
+            resolve(resData.data);
+            return;
+          }
+          reject({ message: resData.msg || "文件上传失败", code: resData.code });
+        } catch {
+          reject({ message: "文件上传响应解析失败", status: xhr.status });
+        }
+      };
+      xhr.onerror = () => reject({ message: "文件上传请求失败" });
+      onProgress?.(0);
+      xhr.send(formData);
+    }).catch((error: any) => {
       uni.showToast({
         title: error?.message || "文件上传请求失败",
         icon: "none",
       });
       throw error;
-    }
+    });
   },
   // #endif
 };
 
 export default FileAPI;
+
+export type UploadProgressCallback = (percent: number) => void;
 
 /**
  * 文件API类型声明

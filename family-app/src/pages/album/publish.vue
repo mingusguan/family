@@ -110,7 +110,11 @@
     <view v-if="submitting" class="upload-mask">
       <view class="upload-mask__card">
         <wd-loading color="#7567dc" />
-        <text>{{ uploadProgress || "正在上传并保存..." }}</text>
+        <text class="upload-mask__text">{{ uploadProgress || "正在上传并保存..." }}</text>
+        <view class="upload-mask__progress">
+          <view class="upload-mask__progress-bar" :style="{ width: uploadPercent + '%' }" />
+        </view>
+        <text class="upload-mask__percent">{{ uploadPercent }}%</text>
       </view>
     </view>
   </view>
@@ -165,6 +169,7 @@ const MAX_MEDIA_COUNT = 9;
 const selectedMedia = ref<SelectedMedia[]>([]);
 const submitting = ref(false);
 const uploadProgress = ref("");
+const uploadPercent = ref(0);
 const recording = ref(false);
 let recorder: ReturnType<typeof uni.getRecorderManager> | undefined;
 
@@ -450,6 +455,7 @@ function removeMedia(index: number) {
 async function publish() {
   if (!selectedMedia.value.length || submitting.value) return;
   submitting.value = true;
+  uploadPercent.value = 0;
   try {
 
     const uploadedFiles: Array<{
@@ -457,20 +463,47 @@ async function publish() {
       fileInfo: Awaited<ReturnType<typeof FileAPI.upload>>;
       thumbnailFileInfo?: Awaited<ReturnType<typeof FileAPI.upload>>;
     }> = [];
+    const totalUploadTasks = selectedMedia.value.reduce(
+      (total, media) => total + 1 + (media.type === "VIDEO" && media.thumbnailPath ? 1 : 0),
+      0
+    );
+    let completedUploadTasks = 0;
+    const createProgressHandler = (label: string) => (percent: number) => {
+      const currentPercent = Math.max(0, Math.min(100, Math.round(percent)));
+      uploadPercent.value = Math.round(
+        ((completedUploadTasks + currentPercent / 100) / totalUploadTasks) * 100
+      );
+      uploadProgress.value = label + " " + currentPercent + "%";
+    };
+
     for (let index = 0; index < selectedMedia.value.length; index += 1) {
       const media = selectedMedia.value[index];
-      uploadProgress.value = "正在上传 " + (index + 1) + "/" + selectedMedia.value.length;
-      const fileInfo = await FileAPI.upload(media.path, media.rawFile);
+      const fileLabel =
+        "正在上传第 " + (index + 1) + "/" + selectedMedia.value.length + " 个文件";
+      const fileInfo = await FileAPI.upload(
+        media.path,
+        media.rawFile,
+        createProgressHandler(fileLabel)
+      );
+      completedUploadTasks += 1;
+      uploadPercent.value = Math.round((completedUploadTasks / totalUploadTasks) * 100);
+
       let thumbnailFileInfo: Awaited<ReturnType<typeof FileAPI.upload>> | undefined;
       if (media.type === "VIDEO" && media.thumbnailPath) {
-        uploadProgress.value = "正在上传视频封面 " + (index + 1) + "/" + selectedMedia.value.length;
-        thumbnailFileInfo = await FileAPI.upload(media.thumbnailPath, media.rawThumbnailFile);
+        const thumbnailLabel = "正在上传第 " + (index + 1) + " 个视频封面";
+        thumbnailFileInfo = await FileAPI.upload(
+          media.thumbnailPath,
+          media.rawThumbnailFile,
+          createProgressHandler(thumbnailLabel)
+        );
+        completedUploadTasks += 1;
+        uploadPercent.value = Math.round((completedUploadTasks / totalUploadTasks) * 100);
       }
       uploadedFiles.push({ media, fileInfo, thumbnailFileInfo });
     }
-
     const fallbackCapturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
-    uploadProgress.value = "正在保存";
+    uploadPercent.value = 100;
+    uploadProgress.value = "上传完成，正在保存";
     await AlbumAPI.createMoment({
       familyId: familyId.value,
       albumId: albumId.value,
@@ -511,6 +544,7 @@ async function publish() {
   } finally {
     submitting.value = false;
     uploadProgress.value = "";
+    uploadPercent.value = 0;
   }
 }
 
@@ -971,12 +1005,39 @@ onLoad((options) => {
 .upload-mask__card {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: 20rpx;
   align-items: center;
+  width: 460rpx;
   padding: 48rpx;
   font-size: 24rpx;
   color: #5c5567;
   background: #fff;
   border-radius: 30rpx;
+}
+
+.upload-mask__text {
+  max-width: 100%;
+  text-align: center;
+}
+
+.upload-mask__progress {
+  width: 100%;
+  height: 14rpx;
+  overflow: hidden;
+  background: #ebe8f3;
+  border-radius: 999rpx;
+}
+
+.upload-mask__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #7162dc, #a36fce);
+  border-radius: inherit;
+  transition: width 160ms ease;
+}
+
+.upload-mask__percent {
+  font-size: 26rpx;
+  font-weight: 650;
+  color: #7162dc;
 }
 </style>

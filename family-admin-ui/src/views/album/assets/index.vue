@@ -207,9 +207,15 @@
                   accept="image/*,video/*,audio/*"
                 >
                   <el-button type="primary" icon="upload" :loading="uploading">
-                    {{ formData.url ? "重新上传" : "选择并上传文件" }}
+                    {{ uploading ? "正在上传 " + uploadPercent + "%" : formData.url ? "重新上传" : "选择并上传文件" }}
                   </el-button>
                 </el-upload>
+                <el-progress
+                  v-if="uploading"
+                  :percentage="uploadPercent"
+                  :stroke-width="8"
+                  class="upload-progress"
+                />
                 <div v-if="formData.url" class="uploaded-file">
                   <div class="uploaded-file__preview">
                     <el-image
@@ -385,6 +391,7 @@ const formRef = ref<FormInstance>();
 const loading = ref(false);
 const submitting = ref(false);
 const uploading = ref(false);
+const uploadPercent = ref(0);
 const selectedIds = ref<string[]>([]);
 const groups = ref<AlbumGroupItem[]>([]);
 const userOptions = ref<OptionItem[]>([]);
@@ -441,9 +448,12 @@ async function handleFileUpload(options: UploadRequestOptions) {
   const mediaType = resolveMediaType(file);
   if (!mediaType) return;
   uploading.value = true;
+  uploadPercent.value = 0;
   try {
     const metadata = await readMediaMetadata(file, mediaType);
-    const uploaded = await FileAPI.uploadFile(file);
+    const uploaded = await FileAPI.uploadFile(file, (percent) => {
+      uploadPercent.value = percent;
+    });
     const mediaGroup = groups.value.find((item) => item.name === mediaLabel(mediaType));
     Object.assign(formData, {
       mediaType,
@@ -467,6 +477,7 @@ async function handleFileUpload(options: UploadRequestOptions) {
     ElMessage.error("文件上传失败");
   } finally {
     uploading.value = false;
+    uploadPercent.value = 0;
   }
 }
 
@@ -642,6 +653,11 @@ onMounted(async () => {
   color: var(--el-text-color-secondary);
   font-size: 12px;
 }
+.upload-progress {
+  width: 280px;
+  max-width: 100%;
+}
+
 .resource-upload {
   width: 100%;
 }

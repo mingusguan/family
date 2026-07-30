@@ -19,15 +19,10 @@ const FileAPI = {
   },
 
   /** 上传文件（传入 File） */
-  uploadFile(file: File) {
+  uploadFile(file: File, onProgress?: (percent: number) => void) {
     const formData = new FormData();
     formData.append("file", file);
-    return request<unknown, FileInfo>({
-      url: "/api/v1/files",
-      method: "post",
-      data: formData,
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return this.upload(formData, onProgress);
   },
 
   /** 删除文件 */
