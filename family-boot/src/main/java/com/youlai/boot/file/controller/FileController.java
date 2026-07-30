@@ -16,6 +16,8 @@ import lombok.SneakyThrows;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+
 /**
  * 文件控制层
  *
@@ -44,12 +46,14 @@ public class FileController {
             )
             @RequestPart(value = "file") MultipartFile file
     ) {
+        // 图片安全检测会把 MultipartFile 写入临时文件，必须在此之前读取原始媒体元数据。
+        LocalDateTime capturedAt = mediaCaptureTimeExtractor.extract(file).orElse(null);
         // 图片在写入对象存储前同步完成微信内容安全检测，所有上传入口都会经过此处。
         if (isImage(file)) {
             wxContentSecurityService.checkImage(file);
         }
         FileInfo fileInfo = fileService.uploadFile(file);
-        fileInfo.setCapturedAt(mediaCaptureTimeExtractor.extract(file).orElse(null));
+        fileInfo.setCapturedAt(capturedAt);
         return Result.success(fileInfo);
     }
 

@@ -36,6 +36,7 @@
             v-else-if="media.type === 'VIDEO'"
             class="selected-media__preview"
             :src="media.path"
+            :poster="media.thumbnailPath"
             controls
             object-fit="cover"
           />
@@ -169,8 +170,12 @@ interface SelectedMedia {
   duration?: number;
   width?: number;
   height?: number;
+  /** 视频选择器返回或浏览器端生成的本地封面地址。 */
+  thumbnailPath?: string;
   /** H5 原生文件对象，用于浏览器端上传。 */
   rawFile?: File;
+  /** H5 生成的视频封面文件，用于浏览器端上传。 */
+  rawThumbnailFile?: File;
 }
 
 definePage({
@@ -368,6 +373,7 @@ async function applyPickedMedia(file: any) {
     file.fileType === "video" || mimeType.startsWith("video/") || /\.(mp4|mov|m4v)$/i.test(path);
 
   if (isVideo) {
+    const thumbnail = await resolveVideoThumbnail(file, path);
     addSelectedMedia({
       type: "VIDEO",
       path,
@@ -377,7 +383,9 @@ async function applyPickedMedia(file: any) {
       duration: file.duration ? Math.round(file.duration * 1000) : undefined,
       width: file.width,
       height: file.height,
+      thumbnailPath: thumbnail.path,
       rawFile: file.rawFile,
+      rawThumbnailFile: thumbnail.rawFile,
     });
     return;
   }
@@ -479,6 +487,9 @@ function removeMedia(index: number) {
   const [media] = selectedMedia.value.splice(index, 1);
   // #ifdef H5
   if (media?.rawFile && media.path.startsWith("blob:")) URL.revokeObjectURL(media.path);
+  if (media?.rawThumbnailFile && media.thumbnailPath?.startsWith("blob:")) {
+    URL.revokeObjectURL(media.thumbnailPath);
+  }
   // #endif
 }
 
@@ -543,12 +554,18 @@ async function publish() {
     const uploadedFiles: Array<{
       media: SelectedMedia;
       fileInfo: Awaited<ReturnType<typeof FileAPI.upload>>;
+      thumbnailFileInfo?: Awaited<ReturnType<typeof FileAPI.upload>>;
     }> = [];
     for (let index = 0; index < selectedMedia.value.length; index += 1) {
       const media = selectedMedia.value[index];
       uploadProgress.value = "正在上传 " + (index + 1) + "/" + selectedMedia.value.length;
       const fileInfo = await FileAPI.upload(media.path, media.rawFile);
-      uploadedFiles.push({ media, fileInfo });
+      let thumbnailFileInfo: Awaited<ReturnType<typeof FileAPI.upload>> | undefined;
+      if (media.type === "VIDEO" && media.thumbnailPath) {
+        uploadProgress.value = "正在上传视频封面 " + (index + 1) + "/" + selectedMedia.value.length;
+        thumbnailFileInfo = await FileAPI.upload(media.thumbnailPath, media.rawThumbnailFile);
+      }
+      uploadedFiles.push({ media, fileInfo, thumbnailFileInfo });
     }
 
     const fallbackCapturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
@@ -556,9 +573,10 @@ async function publish() {
     await AlbumAPI.createMoment({
       familyId: familyId.value,
       albumId: albumId.value,
-      resources: uploadedFiles.map(({ media, fileInfo }) => ({
+      resources: uploadedFiles.map(({ media, fileInfo, thumbnailFileInfo }) => ({
         mediaType: media.type,
         url: fileInfo.url,
+        thumbnailUrl: thumbnailFileInfo?.url,
         originalName: fileInfo.name || media.name,
         mimeType: media.mimeType,
         fileSize: media.size,
@@ -605,6 +623,69 @@ function getImageInfo(path: string): Promise<{ width?: number; height?: number }
     });
   });
 }
+
+async function resolveVideoThumbnail(
+  file: any,
+  videoPath: string
+): Promise<{ path?: string; rawFile?: File }> {
+  const pickerThumbnailPath = file.thumbTempFilePath || file.thumbnailPath || file.thumbPath;
+  if (pickerThumbnailPath) {
+    return { path: pickerThumbnailPath };
+  }
+
+  // #ifdef H5
+  if (file.rawFile instanceof File) {
+    return createH5VideoThumbnail(file.rawFile, videoPath);
+  }
+  // #endif
+  return {};
+}
+
+// #ifdef H5
+function createH5VideoThumbnail(
+  rawFile: File,
+  videoPath: string
+): Promise<{ path?: string; rawFile?: File }> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    const finishWithoutThumbnail = () => resolve({});
+    video.onerror = finishWithoutThumbnail;
+    video.onloadedmetadata = () => {
+      video.currentTime = Math.min(0.1, Math.max(video.duration / 10, 0));
+    };
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      if (!context || !canvas.width || !canvas.height) {
+        finishWithoutThumbnail();
+        return;
+      }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            finishWithoutThumbnail();
+            return;
+          }
+          const thumbnailFile = new File([blob], rawFile.name + "-cover.jpg", {
+            type: "image/jpeg",
+          });
+          resolve({ path: URL.createObjectURL(thumbnailFile), rawFile: thumbnailFile });
+        },
+        "image/jpeg",
+        0.85
+      );
+    };
+    video.src = videoPath;
+  });
+}
+// #endif
 
 function getFileName(path: string, fallback: string) {
   const clean = path.split("?")[0].replace(/\\/g, "/");
