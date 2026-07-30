@@ -109,8 +109,7 @@
     />
     <view v-if="submitting" class="upload-mask">
       <view class="upload-mask__card">
-        <wd-loading color="#7567dc" />
-        <text class="upload-mask__text">{{ uploadProgress || "正在上传并保存..." }}</text>
+        <text class="upload-mask__text">{{ uploadPercent < 100 ? "上传总进度" : "上传完成，正在保存" }}</text>
         <view class="upload-mask__progress">
           <view class="upload-mask__progress-bar" :style="{ width: uploadPercent + '%' }" />
         </view>
@@ -168,7 +167,6 @@ const description = ref("");
 const MAX_MEDIA_COUNT = 9;
 const selectedMedia = ref<SelectedMedia[]>([]);
 const submitting = ref(false);
-const uploadProgress = ref("");
 const uploadPercent = ref(0);
 const recording = ref(false);
 let recorder: ReturnType<typeof uni.getRecorderManager> | undefined;
@@ -463,47 +461,38 @@ async function publish() {
       fileInfo: Awaited<ReturnType<typeof FileAPI.upload>>;
       thumbnailFileInfo?: Awaited<ReturnType<typeof FileAPI.upload>>;
     }> = [];
-    const totalUploadTasks = selectedMedia.value.reduce(
-      (total, media) => total + 1 + (media.type === "VIDEO" && media.thumbnailPath ? 1 : 0),
-      0
-    );
-    let completedUploadTasks = 0;
-    const createProgressHandler = (label: string) => (percent: number) => {
-      const currentPercent = Math.max(0, Math.min(100, Math.round(percent)));
-      uploadPercent.value = Math.round(
-        ((completedUploadTasks + currentPercent / 100) / totalUploadTasks) * 100
-      );
-      uploadProgress.value = label + " " + currentPercent + "%";
-    };
+    const createProgressHandler =
+      (fileIndex: number, stageStart: number, stageWeight: number) =>
+      (percent: number) => {
+        const currentPercent = Math.max(0, Math.min(100, Math.round(percent)));
+        const fileProgress = stageStart + (currentPercent / 100) * stageWeight;
+        uploadPercent.value = Math.round(
+          ((fileIndex + fileProgress) / selectedMedia.value.length) * 100
+        );
+      };
 
     for (let index = 0; index < selectedMedia.value.length; index += 1) {
       const media = selectedMedia.value[index];
-      const fileLabel =
-        "正在上传第 " + (index + 1) + "/" + selectedMedia.value.length + " 个文件";
+      const hasThumbnail = media.type === "VIDEO" && Boolean(media.thumbnailPath);
       const fileInfo = await FileAPI.upload(
         media.path,
         media.rawFile,
-        createProgressHandler(fileLabel)
+        createProgressHandler(index, 0, hasThumbnail ? 0.95 : 1)
       );
-      completedUploadTasks += 1;
-      uploadPercent.value = Math.round((completedUploadTasks / totalUploadTasks) * 100);
 
       let thumbnailFileInfo: Awaited<ReturnType<typeof FileAPI.upload>> | undefined;
-      if (media.type === "VIDEO" && media.thumbnailPath) {
-        const thumbnailLabel = "正在上传第 " + (index + 1) + " 个视频封面";
+      if (hasThumbnail && media.thumbnailPath) {
         thumbnailFileInfo = await FileAPI.upload(
           media.thumbnailPath,
           media.rawThumbnailFile,
-          createProgressHandler(thumbnailLabel)
+          createProgressHandler(index, 0.95, 0.05)
         );
-        completedUploadTasks += 1;
-        uploadPercent.value = Math.round((completedUploadTasks / totalUploadTasks) * 100);
       }
+      uploadPercent.value = Math.round(((index + 1) / selectedMedia.value.length) * 100);
       uploadedFiles.push({ media, fileInfo, thumbnailFileInfo });
     }
     const fallbackCapturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
     uploadPercent.value = 100;
-    uploadProgress.value = "上传完成，正在保存";
     await AlbumAPI.createMoment({
       familyId: familyId.value,
       albumId: albumId.value,
@@ -543,7 +532,6 @@ async function publish() {
     uni.showToast({ title: error?.message || "发布失败，请稍后重试", icon: "none" });
   } finally {
     submitting.value = false;
-    uploadProgress.value = "";
     uploadPercent.value = 0;
   }
 }
