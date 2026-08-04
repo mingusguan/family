@@ -40,7 +40,7 @@ export function uploadToCos(
           resolve();
           return;
         }
-        reject(new Error("COS上传失败（" + response.statusCode + "）"));
+        reject(new Error(formatCosUploadError(response.statusCode, response.data)));
       },
       fail: (error) => reject(new Error(error.errMsg || "COS上传请求失败")),
     });
@@ -82,7 +82,7 @@ function uploadBrowserFile(
         onProgress?.(100);
         resolve();
       } else {
-        reject(new Error("COS上传失败（" + xhr.status + "）"));
+        reject(new Error(formatCosUploadError(xhr.status, xhr.responseText)));
       }
     };
     xhr.onerror = () => reject(new Error("COS上传请求失败"));
@@ -91,3 +91,13 @@ function uploadBrowserFile(
   });
 }
 // #endif
+
+function formatCosUploadError(statusCode: number, responseData: unknown): string {
+  const responseText = typeof responseData === "string"
+    ? responseData
+    : JSON.stringify(responseData || "");
+  const code = responseText.match(/<Code>([^<]+)<\/Code>/i)?.[1];
+  const message = responseText.match(/<Message>([^<]+)<\/Message>/i)?.[1];
+  const detail = [code, message].filter(Boolean).join("：");
+  return "COS上传失败（HTTP " + statusCode + "）" + (detail ? "：" + detail : "");
+}

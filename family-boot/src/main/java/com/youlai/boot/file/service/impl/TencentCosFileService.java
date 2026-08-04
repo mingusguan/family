@@ -158,7 +158,10 @@ public class TencentCosFileService implements FileService, DirectUploadStorageSe
                     "conditions", List.of(
                             Map.of("bucket", bucketName),
                             List.of("eq", "$key", objectKey),
-                            List.of("content-length-range", 1, maxFileSize)
+                            List.of("content-length-range", 1, maxFileSize),
+                            Map.of("q-sign-algorithm", "sha1"),
+                            Map.of("q-ak", secretId),
+                            Map.of("q-sign-time", keyTime)
                     )
             );
             String policy = Base64.getEncoder().encodeToString(

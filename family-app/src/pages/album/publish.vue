@@ -514,6 +514,7 @@ async function publish() {
 
     const uploadedIndexes: number[] = [];
     const thumbnailUploadedIndexes: number[] = [];
+    const directUploadErrors: string[] = [];
     await Promise.all(initialized.uploads.map(async (item) => {
       const selected = files[item.index].media;
       try {
@@ -522,6 +523,8 @@ async function publish() {
         uploadedIndexes.push(item.index);
       } catch (error) {
         console.warn("原文件直传失败，已过滤", selected.name, error);
+        const message = error instanceof Error ? error.message : String(error);
+        directUploadErrors.push(selected.name + ': ' + message);
         updateProgress("file-" + item.index, 100);
         if (item.thumbnail) updateProgress("thumb-" + item.index, 100);
         return;
@@ -551,7 +554,8 @@ async function publish() {
     if (status.status !== "COMPLETED") {
       await showResultModal("后台仍在处理", summary + "。可先返回相册，处理完成后会自动显示。");
     } else if (status.failed) {
-      await showResultModal("上传处理完成", summary);
+      const errorDetail = directUploadErrors.length ? "\n\n" + directUploadErrors[0] : "";
+      await showResultModal("上传处理完成", summary + errorDetail);
     } else {
       uni.showToast({ title: "成功发布" + status.success + "个文件", icon: "success" });
     }
