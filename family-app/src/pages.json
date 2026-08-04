@@ -110,15 +110,6 @@
       "layout": "tabbar"
     },
     {
-      "path": "pages/register/index",
-      "type": "page",
-      "name": "register",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": ""
-      }
-    },
-    {
       "path": "pages/webview/index",
       "type": "page",
       "name": "webview",

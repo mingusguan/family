@@ -37,6 +37,30 @@ const AlbumAPI = {
     });
   },
 
+  initializeDirectUpload(data: AlbumDirectUploadInitRequest) {
+    return request<AlbumDirectUploadInitResult>({
+      url: ALBUM_BASE_URL + "/direct-uploads",
+      method: "POST",
+      data,
+      timeout: 3 * 60 * 1000,
+    });
+  },
+
+  confirmDirectUpload(data: AlbumDirectUploadConfirmRequest) {
+    return request<AlbumDirectUploadStatus>({
+      url: ALBUM_BASE_URL + "/direct-uploads/confirm",
+      method: "POST",
+      data,
+      timeout: 3 * 60 * 1000,
+    });
+  },
+
+  getDirectUploadStatus(batchId: string) {
+    return request<AlbumDirectUploadStatus>({
+      url: ALBUM_BASE_URL + "/direct-uploads/" + batchId,
+      method: "GET",
+    });
+  },
   createMoment(data: AlbumMomentCreateRequest) {
     return request<void>({
       url: ALBUM_BASE_URL + "/moments",
@@ -68,6 +92,61 @@ export interface AlbumMomentQuery extends PageQuery {
   mediaTypes?: string;
 }
 
+export interface AlbumDirectUploadInitRequest {
+  familyId: number;
+  albumId: number;
+  description?: string;
+  files: AlbumDirectUploadFile[];
+}
+
+export interface AlbumDirectUploadFile {
+  mediaType: AlbumMediaType;
+  originalName: string;
+  mimeType?: string;
+  fileSize: number;
+  duration?: number;
+  width?: number;
+  height?: number;
+  hasThumbnail?: boolean;
+}
+
+export interface CosPostUploadTicket {
+  uploadUrl: string;
+  objectKey: string;
+  policy: string;
+  qSignAlgorithm: string;
+  qAk: string;
+  qKeyTime: string;
+  qSignature: string;
+  securityToken?: string;
+}
+
+export interface AlbumDirectUploadItem {
+  index: number;
+  file: CosPostUploadTicket;
+  thumbnail?: CosPostUploadTicket;
+}
+
+export interface AlbumDirectUploadInitResult {
+  batchId: string;
+  expiresAt: string;
+  uploads: AlbumDirectUploadItem[];
+}
+
+export interface AlbumDirectUploadConfirmRequest {
+  batchId: string;
+  uploadedIndexes: number[];
+  thumbnailUploadedIndexes: number[];
+}
+
+export interface AlbumDirectUploadStatus {
+  batchId: string;
+  status: "INIT" | "PROCESSING" | "COMPLETED";
+  total: number;
+  processing: number;
+  success: number;
+  failed: number;
+}
 export interface AlbumMomentCreateRequest {
   familyId: number;
   albumId: number;

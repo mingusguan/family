@@ -110,6 +110,95 @@ public final class AlbumModels {
         private Long albumId;
     }
 
+    /** 小程序相册直传初始化参数。 */
+    @Data
+    public static class AlbumDirectUploadInitRequest {
+        @NotNull(message = "请选择家庭")
+        private Long familyId;
+        @NotNull(message = "请选择相册")
+        private Long albumId;
+        @Size(max = 500, message = "描述长度不能超过500个字符")
+        private String description;
+        @Valid
+        @NotEmpty(message = "请选择要上传的资源")
+        @Size(max = 36, message = "一次最多上传36个资源")
+        private List<AlbumDirectUploadFileRequest> files;
+    }
+
+    /** 直传文件的客户端可知元数据。 */
+    @Data
+    public static class AlbumDirectUploadFileRequest {
+        @NotNull(message = "资源类型不能为空")
+        private AlbumMediaTypeEnum mediaType;
+        @NotBlank(message = "原始文件名不能为空")
+        @Size(max = 255, message = "原始文件名长度不能超过255个字符")
+        private String originalName;
+        @Size(max = 100, message = "MIME类型长度不能超过100个字符")
+        private String mimeType;
+        @NotNull(message = "文件大小不能为空")
+        @Min(value = 1, message = "文件不能为空")
+        @Max(value = 104857600, message = "单个文件不能超过100MB")
+        private Long fileSize;
+        @Min(value = 0, message = "资源时长不能小于0")
+        private Long duration;
+        @Min(value = 0, message = "宽度不能小于0")
+        private Integer width;
+        @Min(value = 0, message = "高度不能小于0")
+        private Integer height;
+        private Boolean hasThumbnail = false;
+    }
+
+    /** 一次直传初始化结果。 */
+    @Data
+    public static class AlbumDirectUploadInitVO {
+        private String batchId;
+        private LocalDateTime expiresAt;
+        private List<AlbumDirectUploadItemVO> uploads;
+    }
+
+    /** 一个原文件及可选封面的上传票据。 */
+    @Data
+    public static class AlbumDirectUploadItemVO {
+        private Integer index;
+        private AlbumDirectUploadTicketVO file;
+        private AlbumDirectUploadTicketVO thumbnail;
+    }
+
+    /** COS PostObject 表单票据。 */
+    @Data
+    public static class AlbumDirectUploadTicketVO {
+        private String uploadUrl;
+        private String objectKey;
+        private String policy;
+        private String qSignAlgorithm;
+        private String qAk;
+        private String qKeyTime;
+        private String qSignature;
+        private String securityToken;
+    }
+
+    /** 客户端完成直传后的单次确认参数。 */
+    @Data
+    public static class AlbumDirectUploadConfirmRequest {
+        @NotBlank(message = "上传批次不能为空")
+        private String batchId;
+        @NotNull(message = "请提交上传结果")
+        @Size(max = 36, message = "上传结果不能超过36项")
+        private List<@Min(0) @Max(35) Integer> uploadedIndexes;
+        @Size(max = 36, message = "封面上传结果不能超过36项")
+        private List<@Min(0) @Max(35) Integer> thumbnailUploadedIndexes;
+    }
+
+    /** 直传批次处理状态。 */
+    @Data
+    public static class AlbumDirectUploadStatusVO {
+        private String batchId;
+        private String status;
+        private Integer total;
+        private Integer processing;
+        private Integer success;
+        private Integer failed;
+    }
     /** APP 精彩时刻批量创建参数，上传者身份由服务端登录态决定。 */
     @Data
     @Schema(description = "APP精彩时刻批量创建参数")
@@ -123,7 +212,7 @@ public final class AlbumModels {
 
         @Valid
         @NotEmpty(message = "请选择要发布的资源")
-        @Size(max = 9, message = "一次最多发布9个资源")
+        @Size(max = 36, message = "一次最多发布36个资源")
         @Schema(description = "本次发布的资源列表", requiredMode = Schema.RequiredMode.REQUIRED)
         private List<AlbumMomentResourceRequest> resources;
 

@@ -1,6 +1,8 @@
 import { getAccessToken } from "@/utils/auth";
 import { ApiCode } from "@/enums/api-code-enum";
 
+const FILE_UPLOAD_TIMEOUT_MS = 3 * 60 * 1000;
+
 // H5 使用 VITE_APP_BASE_API 作为代理路径，其他平台使用 VITE_APP_API_URL 作为请求路径
 let baseApi =
   import.meta.env.MODE !== "production"
@@ -21,10 +23,15 @@ const FileAPI = {
    *
    * @param filePath
    */
-  upload(filePath: string, rawFile?: File, onProgress?: UploadProgressCallback): Promise<FileInfo> {
+  upload(
+    filePath: string,
+    rawFile?: File,
+    onProgress?: UploadProgressCallback,
+    showErrorToast = true
+  ): Promise<FileInfo> {
     // #ifdef H5
     if (rawFile) {
-      return this.uploadBrowserFile(rawFile, onProgress);
+      return this.uploadBrowserFile(rawFile, onProgress, showErrorToast);
     }
     // #endif
 
@@ -33,6 +40,7 @@ const FileAPI = {
         url: this.uploadUrl,
         filePath: filePath,
         name: "file",
+        timeout: FILE_UPLOAD_TIMEOUT_MS,
         header: {
           Authorization: getAccessToken() ? `Bearer ${getAccessToken()}` : "",
         },
@@ -44,10 +52,12 @@ const FileAPI = {
             resolve(resData.data);
           } else {
             // 其他业务处理失败
-            uni.showToast({
-              title: resData.msg || "文件上传失败",
-              icon: "none",
-            });
+            if (showErrorToast) {
+              uni.showToast({
+                title: resData.msg || "文件上传失败",
+                icon: "none",
+              });
+            }
             reject({
               message: resData.msg || "业务处理失败",
               code: resData.code,
@@ -56,11 +66,13 @@ const FileAPI = {
         },
         fail: (error) => {
           console.log("fail error", error);
-          uni.showToast({
-            title: "文件上传请求失败",
-            icon: "none",
-            duration: 2000,
-          });
+          if (showErrorToast) {
+            uni.showToast({
+              title: "文件上传请求失败",
+              icon: "none",
+              duration: 2000,
+            });
+          }
           reject({
             message: "文件上传请求失败",
             error,
@@ -72,7 +84,11 @@ const FileAPI = {
   },
   // #ifdef H5
   /** 使用浏览器原生 File 对象上传，兼容 H5 自定义照片/视频选择器。 */
-  uploadBrowserFile(rawFile: File, onProgress?: UploadProgressCallback): Promise<FileInfo> {
+  uploadBrowserFile(
+    rawFile: File,
+    onProgress?: UploadProgressCallback,
+    showErrorToast = true
+  ): Promise<FileInfo> {
     const formData = new FormData();
     formData.append("file", rawFile, rawFile.name);
     return new Promise<FileInfo>((resolve, reject) => {
@@ -103,10 +119,12 @@ const FileAPI = {
       onProgress?.(0);
       xhr.send(formData);
     }).catch((error: any) => {
-      uni.showToast({
-        title: error?.message || "文件上传请求失败",
-        icon: "none",
-      });
+      if (showErrorToast) {
+        uni.showToast({
+          title: error?.message || "文件上传请求失败",
+          icon: "none",
+        });
+      }
       throw error;
     });
   },

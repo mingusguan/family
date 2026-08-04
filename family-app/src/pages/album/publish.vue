@@ -92,7 +92,7 @@
         block
         round
         :loading="submitting"
-        :disabled="!albumId || !selectedMedia.length"
+        :disabled="submitting || publishCommitted || !albumId || !selectedMedia.length"
         custom-class="publish-button"
         @click="publish"
       >
@@ -109,7 +109,7 @@
     />
     <view v-if="submitting" class="upload-mask">
       <view class="upload-mask__card">
-        <text class="upload-mask__text">{{ uploadPercent < 100 ? "上传总进度" : "上传完成，正在保存" }}</text>
+        <text class="upload-mask__text">{{ uploadStage === "UPLOADING" ? "上传总进度" : processingSummary || "上传完成，正在处理" }}</text>
         <view class="upload-mask__progress">
           <view class="upload-mask__progress-bar" :style="{ width: uploadPercent + '%' }" />
         </view>
@@ -121,11 +121,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import dayjs from "dayjs";
 import { onLoad } from "@dcloudio/uni-app";
-import AlbumAPI, { type AlbumMediaType } from "@/api/album";
+import AlbumAPI, { type AlbumMediaType, type AlbumDirectUploadStatus } from "@/api/album";
 import FamilyAPI, { type FamilyAlbum } from "@/api/family";
-import FileAPI from "@/api/file";
+import { uploadToCos } from "@/utils/cos-upload";
 import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { Storage } from "@/utils/storage";
 
@@ -164,10 +163,15 @@ const albumActions = computed(() =>
   }))
 );
 const description = ref("");
-const MAX_MEDIA_COUNT = 9;
+const MAX_MEDIA_COUNT = 36;
+const MEDIA_PICKER_MAX_COUNT = 20;
 const selectedMedia = ref<SelectedMedia[]>([]);
 const submitting = ref(false);
+// 后端确认成功后保持页面级锁，避免轮询或跳转期间重复保存同一批资源。
+const publishCommitted = ref(false);
 const uploadPercent = ref(0);
+const uploadStage = ref<"UPLOADING" | "PROCESSING">("UPLOADING");
+const processingSummary = ref("");
 const recording = ref(false);
 let recorder: ReturnType<typeof uni.getRecorderManager> | undefined;
 
@@ -228,7 +232,7 @@ function handleAlbumSelect({ index }: { index: number }) {
 
 function choosePhotoOrVideo() {
   if (selectedMedia.value.length >= MAX_MEDIA_COUNT) {
-    uni.showToast({ title: "一次最多选择9个文件", icon: "none" });
+    uni.showToast({ title: "一次最多选择36个文件", icon: "none" });
     return;
   }
 
@@ -244,13 +248,23 @@ function choosePhotoOrVideo() {
 
   const chooseMedia = (uni as any).chooseMedia;
   if (typeof chooseMedia === "function") {
+    const remainingCount = MAX_MEDIA_COUNT - selectedMedia.value.length;
+    const isIos = uni.getSystemInfoSync().platform === "ios";
     chooseMedia({
-      count: MAX_MEDIA_COUNT - selectedMedia.value.length,
+      // iOS 微信在达到 count 上限后会给其余缩略图添加黑色禁用遮罩。
+      // 选择器中保持单次 20 个额度，返回后再按页面剩余额度截取。
+      count: isIos
+        ? MEDIA_PICKER_MAX_COUNT
+        : Math.min(MEDIA_PICKER_MAX_COUNT, remainingCount),
       mediaType: ["image", "video"],
       sourceType: ["album", "camera"],
       sizeType: ["original"],
       success: async (result: any) => {
-        const files = result.tempFiles || [];
+        const pickedFiles = result.tempFiles || [];
+        const files = pickedFiles.slice(0, remainingCount);
+        if (pickedFiles.length > remainingCount) {
+          uni.showToast({ title: `最多还能添加${remainingCount}个文件`, icon: "none" });
+        }
         for (const file of files) await applyPickedMedia(file);
       },
     });
@@ -313,7 +327,7 @@ function choosePhotoOrVideoFile() {
     return;
   }
   chooseFile({
-    count: MAX_MEDIA_COUNT - selectedMedia.value.length,
+    count: Math.min(MEDIA_PICKER_MAX_COUNT, MAX_MEDIA_COUNT - selectedMedia.value.length),
     extension: ["jpg", "jpeg", "png", "webp", "mp4", "mov"],
     success: async (result: any) => {
       const files = result.tempFiles || [];
@@ -433,7 +447,7 @@ function chooseAudioFile() {
 
 function addSelectedMedia(media: SelectedMedia) {
   if (selectedMedia.value.length >= MAX_MEDIA_COUNT) {
-    uni.showToast({ title: "一次最多选择9个文件", icon: "none" });
+    uni.showToast({ title: "一次最多选择36个文件", icon: "none" });
     return;
   }
   if (selectedMedia.value.some((item) => item.path === media.path)) return;
@@ -451,92 +465,147 @@ function removeMedia(index: number) {
 }
 
 async function publish() {
-  if (!selectedMedia.value.length || submitting.value) return;
+  if (!selectedMedia.value.length || submitting.value || publishCommitted.value) return;
   submitting.value = true;
   uploadPercent.value = 0;
+  uploadStage.value = "UPLOADING";
   try {
+    const files = await Promise.all(selectedMedia.value.map(async (media) => ({
+      media,
+      size: media.size || await getLocalFileSize(media.path, media.rawFile),
+    })));
+    const totalSize = files.reduce((sum, item) => sum + item.size, 0);
+    if (files.some((item) => item.size <= 0)) throw new Error("无法读取文件大小，请重新选择文件");
+    if (files.some((item) => item.size > 100 * 1024 * 1024)) throw new Error("单个文件不能超过100MB");
+    if (totalSize > 500 * 1024 * 1024) throw new Error("一次上传总大小不能超过500MB");
 
-    const uploadedFiles: Array<{
-      media: SelectedMedia;
-      fileInfo: Awaited<ReturnType<typeof FileAPI.upload>>;
-      thumbnailFileInfo?: Awaited<ReturnType<typeof FileAPI.upload>>;
-    }> = [];
-    const createProgressHandler =
-      (fileIndex: number, stageStart: number, stageWeight: number) =>
-      (percent: number) => {
-        const currentPercent = Math.max(0, Math.min(100, Math.round(percent)));
-        const fileProgress = stageStart + (currentPercent / 100) * stageWeight;
-        uploadPercent.value = Math.round(
-          ((fileIndex + fileProgress) / selectedMedia.value.length) * 100
-        );
-      };
-
-    for (let index = 0; index < selectedMedia.value.length; index += 1) {
-      const media = selectedMedia.value[index];
-      const hasThumbnail = media.type === "VIDEO" && Boolean(media.thumbnailPath);
-      const fileInfo = await FileAPI.upload(
-        media.path,
-        media.rawFile,
-        createProgressHandler(index, 0, hasThumbnail ? 0.95 : 1)
-      );
-
-      let thumbnailFileInfo: Awaited<ReturnType<typeof FileAPI.upload>> | undefined;
-      if (hasThumbnail && media.thumbnailPath) {
-        thumbnailFileInfo = await FileAPI.upload(
-          media.thumbnailPath,
-          media.rawThumbnailFile,
-          createProgressHandler(index, 0.95, 0.05)
-        );
-      }
-      uploadPercent.value = Math.round(((index + 1) / selectedMedia.value.length) * 100);
-      uploadedFiles.push({ media, fileInfo, thumbnailFileInfo });
-    }
-    const fallbackCapturedAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
-    uploadPercent.value = 100;
-    await AlbumAPI.createMoment({
+    const initialized = await AlbumAPI.initializeDirectUpload({
       familyId: familyId.value,
       albumId: albumId.value,
-      resources: uploadedFiles.map(({ media, fileInfo, thumbnailFileInfo }) => ({
-        mediaType: media.type,
-        url: fileInfo.url,
-        thumbnailUrl: thumbnailFileInfo?.url,
-        originalName: fileInfo.name || media.name,
-        mimeType: media.mimeType,
-        fileSize: media.size,
-        duration: media.duration,
-        width: media.width,
-        height: media.height,
-        capturedAt: fileInfo.capturedAt || fallbackCapturedAt,
-      })),
       description: description.value.trim() || undefined,
-      capturedAt: fallbackCapturedAt,
+      files: files.map(({ media, size }) => ({
+        mediaType: media.type, originalName: media.name, mimeType: media.mimeType,
+        fileSize: size, duration: media.duration, width: media.width, height: media.height,
+        hasThumbnail: media.type === "VIDEO" && Boolean(media.thumbnailPath),
+      })),
     });
-    uni.showToast({ title: "成功发布" + uploadedFiles.length + "个文件", icon: "success" });
-    Storage.set(ALBUM_NAVIGATION_TARGET_KEY, {
-      familyId: familyId.value,
-      albumId: albumId.value,
+
+    const progress = new Map<string, { percent: number; weight: number }>();
+    initialized.uploads.forEach((item) => {
+      const selected = files[item.index];
+      progress.set("file-" + item.index, { percent: 0, weight: selected.size });
+      if (item.thumbnail && selected.media.thumbnailPath) {
+        progress.set("thumb-" + item.index, {
+          percent: 0,
+          weight: selected.media.rawThumbnailFile?.size || Math.min(selected.size * 0.05, 2 * 1024 * 1024),
+        });
+      }
     });
+    const updateProgress = (key: string, percent: number) => {
+      const job = progress.get(key);
+      if (!job) return;
+      job.percent = Math.max(0, Math.min(100, percent));
+      const jobs = Array.from(progress.values());
+      const weight = jobs.reduce((sum, item) => sum + item.weight, 0);
+      uploadPercent.value = weight
+        ? Math.round(jobs.reduce((sum, item) => sum + item.percent * item.weight, 0) / weight)
+        : 0;
+    };
+
+    const uploadedIndexes: number[] = [];
+    const thumbnailUploadedIndexes: number[] = [];
+    await Promise.all(initialized.uploads.map(async (item) => {
+      const selected = files[item.index].media;
+      try {
+        await uploadToCos(item.file, selected.path, selected.rawFile,
+          (value) => updateProgress("file-" + item.index, value));
+        uploadedIndexes.push(item.index);
+      } catch (error) {
+        console.warn("原文件直传失败，已过滤", selected.name, error);
+        updateProgress("file-" + item.index, 100);
+        if (item.thumbnail) updateProgress("thumb-" + item.index, 100);
+        return;
+      }
+      if (item.thumbnail && selected.thumbnailPath) {
+        try {
+          await uploadToCos(item.thumbnail, selected.thumbnailPath, selected.rawThumbnailFile,
+            (value) => updateProgress("thumb-" + item.index, value));
+          thumbnailUploadedIndexes.push(item.index);
+        } catch (error) {
+          console.warn("视频封面失败，保留原视频", selected.name, error);
+          updateProgress("thumb-" + item.index, 100);
+        }
+      }
+    }));
+
+    uploadPercent.value = 100;
+    uploadStage.value = "PROCESSING";
+    let status = await AlbumAPI.confirmDirectUpload({
+      batchId: initialized.batchId, uploadedIndexes, thumbnailUploadedIndexes,
+    });
+    // 确认接口成功即视为本批次已经提交；后续轮询失败也不允许再次保存。
+    publishCommitted.value = true;
+    status = await pollDirectUploadStatus(status);
+    const summary = "成功" + status.success + "个，失败" + status.failed + "个" +
+      (status.processing ? "，处理中" + status.processing + "个" : "");
+    if (status.status !== "COMPLETED") {
+      await showResultModal("后台仍在处理", summary + "。可先返回相册，处理完成后会自动显示。");
+    } else if (status.failed) {
+      await showResultModal("上传处理完成", summary);
+    } else {
+      uni.showToast({ title: "成功发布" + status.success + "个文件", icon: "success" });
+    }
+    Storage.set(ALBUM_NAVIGATION_TARGET_KEY, { familyId: familyId.value, albumId: albumId.value });
     setTimeout(() => uni.switchTab({ url: "/pages/album/index" }), 700);
   } catch (error: any) {
     console.error("批量发布家庭时刻失败", error);
-    if (error?.code === "A0740") {
-      uni.showModal({
-        title: "内容未通过安全检测",
-        content: error?.message || "内容可能存在违规信息，请修改或重新选择后再提交",
-        showCancel: false,
-        confirmText: "我知道了",
-      });
-      return;
+    if (publishCommitted.value) {
+      await showResultModal("批次已提交", "资源已提交后台处理，请勿重复保存，可返回相册稍后查看。");
+      Storage.set(ALBUM_NAVIGATION_TARGET_KEY, { familyId: familyId.value, albumId: albumId.value });
+      setTimeout(() => uni.switchTab({ url: "/pages/album/index" }), 300);
+    } else {
+      uni.showToast({ title: error?.message || "发布失败，请稍后重试", icon: "none" });
     }
-
-    uni.showToast({ title: error?.message || "发布失败，请稍后重试", icon: "none" });
   } finally {
     submitting.value = false;
     uploadPercent.value = 0;
+    uploadStage.value = "UPLOADING";
+    processingSummary.value = "";
   }
 }
 
-function getImageInfo(path: string): Promise<{ width?: number; height?: number }> {
+async function pollDirectUploadStatus(initial: AlbumDirectUploadStatus) {
+  let status = initial;
+  const deadline = Date.now() + 3 * 60 * 1000;
+  while (status.status !== "COMPLETED" && Date.now() < deadline) {
+    processingSummary.value = "处理中" + status.processing + "个，成功" + status.success + "个，失败" + status.failed + "个";
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    status = await AlbumAPI.getDirectUploadStatus(status.batchId);
+  }
+  return status;
+}
+
+function showResultModal(title: string, content: string) {
+  return new Promise<void>((resolve) => {
+    uni.showModal({ title, content, showCancel: false, confirmText: "我知道了", complete: () => resolve() });
+  });
+}
+
+function getLocalFileSize(path: string, rawFile?: File): Promise<number> {
+  if (rawFile) return Promise.resolve(rawFile.size);
+  return new Promise((resolve) => {
+    const manager = (uni as any).getFileSystemManager?.();
+    if (!manager) return resolve(0);
+    manager.getFileInfo({
+      filePath: path,
+      success: (result: { size: number }) => resolve(result.size || 0),
+      fail: () => resolve(0),
+    });
+  });
+}
+
+function getImageInfo
+(path: string): Promise<{ width?: number; height?: number }> {
   return new Promise((resolve) => {
     uni.getImageInfo({
       src: path,

@@ -155,6 +155,7 @@ declare global {
   const tryOnShow: typeof import('@uni-helper/uni-use')['tryOnShow']
   const tryOnUnload: typeof import('@uni-helper/uni-use')['tryOnUnload']
   const unref: typeof import('vue')['unref']
+  const uploadToCos: typeof import('../utils/cos-upload')['uploadToCos']
   const useActionSheet: typeof import('@uni-helper/uni-use')['useActionSheet']
   const useAttrs: typeof import('vue')['useAttrs']
   const useClipboardData: typeof import('@uni-helper/uni-use')['useClipboardData']
@@ -351,6 +352,7 @@ declare module 'vue' {
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
+    readonly uploadToCos: UnwrapRef<typeof import('../utils/cos-upload')['uploadToCos']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
     readonly useCountdown: UnwrapRef<typeof import('../composables/useCountdown')['useCountdown']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>

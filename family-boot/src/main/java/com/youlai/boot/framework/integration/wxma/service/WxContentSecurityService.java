@@ -3,6 +3,7 @@ package com.youlai.boot.framework.integration.wxma.service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collection;
+import java.nio.file.Path;
 
 /**
  * 微信小程序用户发布内容安全检测服务。
@@ -15,6 +16,9 @@ public interface WxContentSecurityService {
      * @param file 待上传文件
      */
     void checkImage(MultipartFile file);
+
+    /** 检测已经下载到服务器临时目录的图片。 */
+    void checkImage(Path file);
 
     /**
      * 检测用户发布的描述和标签文本。

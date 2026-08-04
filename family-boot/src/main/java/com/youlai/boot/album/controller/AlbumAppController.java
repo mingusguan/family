@@ -6,7 +6,12 @@ import com.youlai.boot.album.model.AlbumModels.AlbumMomentBatchVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentDetailVO;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentQuery;
+import com.youlai.boot.album.model.AlbumModels.AlbumDirectUploadInitRequest;
+import com.youlai.boot.album.model.AlbumModels.AlbumDirectUploadInitVO;
+import com.youlai.boot.album.model.AlbumModels.AlbumDirectUploadConfirmRequest;
+import com.youlai.boot.album.model.AlbumModels.AlbumDirectUploadStatusVO;
 import com.youlai.boot.album.service.AlbumManagementService;
+import com.youlai.boot.album.service.AlbumDirectUploadService;
 import com.youlai.boot.common.annotation.RepeatSubmit;
 import com.youlai.boot.common.result.PageResult;
 import com.youlai.boot.common.result.Result;
@@ -35,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AlbumAppController {
 
     private final AlbumManagementService albumManagementService;
+    private final AlbumDirectUploadService albumDirectUploadService;
 
     /**
      * 分页读取可在客户端展示的精彩时刻。
@@ -78,6 +84,33 @@ public class AlbumAppController {
     public Result<Void> saveMoment(@Valid @RequestBody AlbumMomentCreateRequest request) {
         return Result.judge(albumManagementService.saveMoment(request));
     }
+    /** 初始化小程序到 COS 的批量直传票据。 */
+    @Operation(summary = "初始化相册直传")
+    @PostMapping("/direct-uploads")
+    @RepeatSubmit
+    public Result<AlbumDirectUploadInitVO> initializeDirectUpload(
+            @Valid @RequestBody AlbumDirectUploadInitRequest request
+    ) {
+        return Result.success(albumDirectUploadService.initialize(request));
+    }
+
+    /** 客户端直传结束后一次性确认成功对象并启动异步处理。 */
+    @Operation(summary = "确认相册直传")
+    @PostMapping("/direct-uploads/confirm")
+    @RepeatSubmit
+    public Result<AlbumDirectUploadStatusVO> confirmDirectUpload(
+            @Valid @RequestBody AlbumDirectUploadConfirmRequest request
+    ) {
+        return Result.success(albumDirectUploadService.confirm(request));
+    }
+
+    /** 轮询直传批次的异步处理状态。 */
+    @Operation(summary = "查询相册直传状态")
+    @GetMapping("/direct-uploads/{batchId}")
+    public Result<AlbumDirectUploadStatusVO> getDirectUploadStatus(@PathVariable String batchId) {
+        return Result.success(albumDirectUploadService.getStatus(batchId));
+    }
+
     /**
      * 删除当前用户自己发布的精彩时刻。
      */

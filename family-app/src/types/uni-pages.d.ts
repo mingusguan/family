@@ -13,7 +13,6 @@ type _LocationUrl =
   "/pages/menu/index" |
   "/pages/mine/index" |
   "/pages/plan/index" |
-  "/pages/register/index" |
   "/pages/webview/index" |
   "/pages/work/index" |
   "/pages/mine/about/index" |

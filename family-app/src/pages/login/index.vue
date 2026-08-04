@@ -30,121 +30,18 @@
         <!-- 标题 -->
         <view class="login__card-head">
           <text class="login__card-title">欢迎登录</text>
-          <text class="login__card-subtitle">{{ loginModeDesc }}</text>
+          <text class="login__card-subtitle">使用微信快捷登录</text>
         </view>
-
-        <!-- 表单区域 -->
-        <wd-form
-          v-if="loginMode !== 'WECHAT'"
-          ref="loginFormRef"
-          :model="formData"
-          :schema="formSchema"
-          error-type="message"
-          hide-asterisk
-        >
-          <!-- 用户名/手机号 -->
-          <wd-form-item prop="username" layout="vertical">
-            <view class="login__field">
-              <wd-icon name="user" size="20" color="var(--color-text-placeholder)" />
-              <input
-                v-model="formData.username"
-                class="login__field-input"
-                :placeholder="loginMode === 'PASSWORD' ? '请输入用户名' : '请输入手机号'"
-                :maxlength="loginMode === 'PASSWORD' ? 50 : 11"
-              />
-            </view>
-          </wd-form-item>
-
-          <!-- 密码 -->
-          <wd-form-item v-if="loginMode === 'PASSWORD'" prop="password" layout="vertical">
-            <view class="login__field">
-              <wd-icon name="lock" size="20" color="var(--color-text-placeholder)" />
-              <input
-                v-model="formData.password"
-                class="login__field-input"
-                placeholder="请输入密码"
-                :maxlength="50"
-                password
-                @confirm="handleLogin"
-              />
-            </view>
-          </wd-form-item>
-
-          <!-- 短信验证码 -->
-          <wd-form-item v-if="loginMode === 'SMS'" prop="code" layout="vertical">
-            <view class="login__field">
-              <wd-icon name="lock" size="20" color="var(--color-text-placeholder)" />
-              <input
-                v-model="formData.code"
-                class="login__field-input"
-                placeholder="请输入验证码"
-                type="number"
-                :maxlength="6"
-                @confirm="handleLogin"
-              />
-              <view
-                class="login__code-btn"
-                :class="smsCountdown > 0 ? 'login__code-btn--disabled' : 'login__code-btn--active'"
-                @click="handleSendCode"
-              >
-                {{ smsCountdown > 0 ? `${smsCountdown}s` : "获取验证码" }}
-              </view>
-            </view>
-          </wd-form-item>
-
-          <!-- 演示环境提示 -->
-          <view v-if="loginMode === 'SMS'" class="login__form-item login__demo-hint">
-            <text class="login__demo-hint-text">演示环境验证码：123456</text>
-          </view>
-
-          <!-- 登录按钮 -->
-          <view class="login__form-item">
-            <wd-button type="primary" block :loading="isLoading" @click="handleLogin">
-              登 录
-            </wd-button>
-          </view>
-
-          <!-- 注册入口 -->
-          <view class="login__form-item login__mode-switch" @click="goRegister">
-            <text class="login__mode-switch-text">还没有账号？</text>
-            <text class="login__mode-switch-link">立即注册</text>
-          </view>
-        </wd-form>
 
         <!-- #ifdef MP-WEIXIN -->
         <!-- 微信登录区域 -->
-        <view v-else class="login__form">
+        <view class="login__form">
           <view class="login__form-item">
             <button class="login__wx-btn" :disabled="isLoading" @click="handleWechatLogin">
               <image class="login__wx-btn-icon" src="/static/icons/weixin.png" mode="aspectFit" />
               微信一键登录
             </button>
           </view>
-
-          <!-- 其他登录方式 -->
-          <view class="login__form-item login__mode-switch" @click="loginMode = 'PASSWORD'">
-            <text class="login__mode-switch-text">其他登录方式</text>
-            <text class="login__mode-switch-link">账号登录</text>
-          </view>
-        </view>
-        <!-- #endif -->
-
-        <!-- #ifdef MP-WEIXIN -->
-        <!-- 分割线 -->
-        <view v-if="loginMode !== 'WECHAT'" class="login__divider">
-          <view class="login__divider-line" />
-          <text class="login__divider-text">其他登录方式</text>
-          <view class="login__divider-line" />
-        </view>
-
-        <!-- 微信登录入口 -->
-        <view v-if="loginMode !== 'WECHAT'" class="login__oauth-row">
-          <image
-            class="login__wx-icon"
-            src="/static/icons/weixin.png"
-            mode="aspectFit"
-            @click="loginMode = 'WECHAT'"
-          />
         </view>
 
         <!-- 协议勾选 -->
@@ -176,11 +73,8 @@
 <script lang="ts" setup>
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useToast, useDialog } from "@wot-ui/ui";
-import type { FormSchema } from "@wot-ui/ui/components/wd-form/types";
 
 import { useUserStore } from "@/store/modules/user";
-import { useCountdown } from "@/composables/useCountdown";
-import AuthAPI from "@/api/auth";
 
 definePage({
   name: "login",
@@ -190,107 +84,18 @@ definePage({
 const toast = useToast();
 const dialog = useDialog("policy-box");
 const userStore = useUserStore();
-const loginFormRef = ref();
 
 // 导航栏尺寸
 const statusBarHeight = ref(20);
 const navBarHeight = ref(44);
 
-// 表单状态
+// 登录状态
 const isLoading = ref(false);
 const isAgreePolicy = ref(false);
-const loginMode = ref<"PASSWORD" | "SMS" | "WECHAT">("PASSWORD");
-const { countdown: smsCountdown, start: startSmsCountdown } = useCountdown(60);
-
-const formData = ref({
-  username: "",
-  password: "",
-  code: "123456",
-  captchaCode: "",
-});
-
-// 图形验证码
-const captchaId = ref("");
-const captchaBase64 = ref("");
-const isCaptchaLoading = ref(false);
-
 const redirect = ref("/pages/index/index");
 
-const pendingLoginAction = ref<"FORM" | "WECHAT" | null>(null);
-
-// 计算属性
-const loginModeDesc = computed(() => {
-  const modeMap = {
-    PASSWORD: "使用账号密码登录",
-    SMS: "使用手机验证码登录",
-    WECHAT: "使用微信快捷登录",
-  };
-  return modeMap[loginMode.value];
-});
-
-const isValidMobile = (mobile: string) => /^1\d{10}$/.test((mobile || "").trim());
-
-// 表单校验规则
-const formSchema = computed<FormSchema>(() => ({
-  validate(model) {
-    const issues: { path: string[]; message: string }[] = [];
-    if (loginMode.value === "PASSWORD") {
-      if (!(model.username || "").trim()) {
-        issues.push({ path: ["username"], message: "请输入用户名" });
-      }
-      if (!(model.password || "").trim()) {
-        issues.push({ path: ["password"], message: "请输入密码" });
-      }
-    } else if (loginMode.value === "SMS") {
-      if (!(model.username || "").trim()) {
-        issues.push({ path: ["username"], message: "请输入手机号" });
-      } else if (!isValidMobile(model.username)) {
-        issues.push({ path: ["username"], message: "请输入正确的手机号" });
-      }
-      if (!(model.code || "").trim()) {
-        issues.push({ path: ["code"], message: "请输入验证码" });
-      }
-    }
-    return issues;
-  },
-}));
-
-// 图形验证码
-const fetchCaptcha = async () => {
-  if (isCaptchaLoading.value) return;
-  try {
-    isCaptchaLoading.value = true;
-    captchaBase64.value = "";
-    const res = await AuthAPI.getCaptcha();
-    captchaId.value = res.captchaId;
-    captchaBase64.value = res.captchaBase64;
-  } catch {
-    // 获取验证码失败由 API 层处理
-  } finally {
-    isCaptchaLoading.value = false;
-  }
-};
-
-// 切换登录方式
-const toggleLoginMode = () => {
-  if (loginMode.value === "PASSWORD") {
-    loginMode.value = "SMS";
-    formData.value.username = "18888888888";
-    formData.value.password = "";
-    formData.value.code = "";
-  } else {
-    loginMode.value = "PASSWORD";
-    formData.value.username = "";
-    formData.value.password = "";
-    formData.value.code = "";
-    formData.value.captchaCode = "";
-    fetchCaptcha();
-  }
-};
-
 // 协议弹窗
-const openPolicyDialog = (action: "FORM" | "WECHAT") => {
-  pendingLoginAction.value = action;
+const openPolicyDialog = () => {
   dialog
     .confirm({
       title: "提示",
@@ -298,81 +103,16 @@ const openPolicyDialog = (action: "FORM" | "WECHAT") => {
     })
     .then(async () => {
       isAgreePolicy.value = true;
-      const act = pendingLoginAction.value;
-      pendingLoginAction.value = null;
-      if (act === "WECHAT") await doWechatLogin();
-      else if (act === "FORM") await doFormLogin();
+      await doWechatLogin();
     })
-    .catch(() => {
-      pendingLoginAction.value = null;
-    });
-};
-
-// 表单登录
-async function doFormLogin() {
-  if (isLoading.value) return;
-  isLoading.value = true;
-  try {
-    if (loginMode.value === "PASSWORD") {
-      await userStore.login({
-        username: formData.value.username,
-        password: formData.value.password,
-        captchaId: captchaId.value,
-        captchaCode: formData.value.captchaCode,
-      });
-    } else {
-      await userStore.loginBySms({
-        mobile: formData.value.username.trim(),
-        code: formData.value.code,
-      });
-    }
-    await userStore.getInfo();
-    toast.success("登录成功");
-    setTimeout(() => uni.reLaunch({ url: redirect.value }), 800);
-  } catch (error: any) {
-    toast.error(error?.message || "登录失败");
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-const handleLogin = async () => {
-  // 先校验表单必填项（内联提示，不再弹窗）
-  const { valid } = await loginFormRef.value?.validate();
-  if (!valid) return;
-  // 再校验隐私协议
-  if (!isAgreePolicy.value) {
-    openPolicyDialog("FORM");
-    return;
-  }
-  await doFormLogin();
-};
-
-const handleSendCode = async () => {
-  if (smsCountdown.value > 0) return;
-  const mobile = formData.value.username.trim();
-  if (!mobile) {
-    toast.error("请输入手机号");
-    return;
-  }
-  if (!isValidMobile(mobile)) {
-    toast.error("请输入正确的手机号");
-    return;
-  }
-  try {
-    await AuthAPI.sendSmsLoginCode(mobile);
-    toast.success("验证码已发送");
-    startSmsCountdown();
-  } catch (error: any) {
-    toast.error(error?.message || "发送失败");
-  }
+    .catch(() => undefined);
 };
 
 // 微信登录
 const handleWechatLogin = async () => {
   if (isLoading.value) return;
   if (!isAgreePolicy.value) {
-    openPolicyDialog("WECHAT");
+    openPolicyDialog();
     return;
   }
   await doWechatLogin();
@@ -403,10 +143,6 @@ const navigateToAgreement = (type: string) => {
   uni.navigateTo({ url });
 };
 
-const goRegister = () => {
-  uni.navigateTo({ url: "/pages/register/index" });
-};
-
 const handleBack = () => {
   if (getCurrentPages().length > 1) {
     uni.navigateBack();
@@ -426,9 +162,6 @@ onLoad((options: any) => {
   // #ifdef MP-WEIXIN
   const menuButton = uni.getMenuButtonBoundingClientRect();
   navBarHeight.value = menuButton.height + (menuButton.top - statusBarHeight.value) * 2;
-  // #endif
-  // #ifndef MP-WEIXIN
-  if (loginMode.value === "WECHAT") loginMode.value = "PASSWORD";
   // #endif
 });
 

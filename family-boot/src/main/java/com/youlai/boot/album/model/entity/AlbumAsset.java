@@ -7,6 +7,7 @@ import com.youlai.boot.album.enums.AlbumMediaTypeEnum;
 import com.youlai.boot.album.model.AlbumModels.AlbumAssetSaveRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentCreateRequest;
 import com.youlai.boot.album.model.AlbumModels.AlbumMomentResourceRequest;
+import com.youlai.boot.album.model.AlbumModels.AlbumDirectUploadFileRequest;
 import com.youlai.boot.common.base.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
@@ -72,6 +73,49 @@ public class AlbumAsset extends BaseEntity {
         return asset;
     }
 
+    /** 创建尚未通过异步审核、对家庭成员不可见的直传资源。 */
+    @JsonIgnore
+    public static AlbumAsset createPendingDirect(
+            Long uploaderId,
+            Long familyId,
+            Long albumId,
+            String batchId,
+            String description,
+            AlbumDirectUploadFileRequest resource,
+            String url,
+            String thumbnailUrl
+    ) {
+        AlbumAsset asset = new AlbumAsset();
+        asset.uploaderId = uploaderId;
+        asset.familyId = familyId;
+        asset.albumId = albumId;
+        asset.uploadBatchId = batchId;
+        asset.mediaType = resource.getMediaType();
+        asset.url = url;
+        asset.thumbnailUrl = thumbnailUrl;
+        asset.originalName = resource.getOriginalName();
+        asset.mimeType = resource.getMimeType();
+        asset.fileSize = resource.getFileSize();
+        asset.duration = resource.getDuration();
+        asset.width = resource.getWidth();
+        asset.height = resource.getHeight();
+        asset.description = description;
+        asset.status = 0;
+        return asset;
+    }
+
+    /** 使用 COS 校验值更新元数据并公开展示。 */
+    public void approveDirectUpload(long verifiedSize, String verifiedMimeType, LocalDateTime capturedAt) {
+        this.fileSize = verifiedSize;
+        this.mimeType = verifiedMimeType;
+        this.capturedAt = capturedAt;
+        this.status = 1;
+    }
+
+    /** 封面直传失败时保留原视频并移除无效封面地址。 */
+    public void removeThumbnail() {
+        this.thumbnailUrl = null;
+    }
     /**
      * 创建相册资源并统一应用资源元数据规则。
      */

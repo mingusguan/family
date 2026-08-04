@@ -11,6 +11,7 @@ import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PutObjectRequest;
 import com.qcloud.cos.region.Region;
@@ -18,6 +19,7 @@ import com.youlai.boot.common.exception.BusinessException;
 import com.youlai.boot.common.result.ResultCode;
 import com.youlai.boot.file.model.FileInfo;
 import com.youlai.boot.file.service.FileService;
+import com.youlai.boot.file.service.DirectUploadStorageService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.Data;
@@ -29,6 +31,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import cn.hutool.json.JSONUtil;
 import java.time.LocalDateTime;
 import java.util.Date;
 
@@ -41,7 +52,7 @@ import java.util.Date;
 @ConditionalOnProperty(value = "oss.type", havingValue = "cos")
 @ConfigurationProperties(prefix = "oss.cos")
 @RequiredArgsConstructor
-public class TencentCosFileService implements FileService {
+public class TencentCosFileService implements FileService, DirectUploadStorageService {
 
     /** COS 地域简称，例如 ap-guangzhou。 */
     private String region;
@@ -135,6 +146,77 @@ public class TencentCosFileService implements FileService {
         return generateInlinePreviewUrl(objectKey, expiration);
     }
 
+    @Override
+    public UploadTicket createUploadTicket(String objectKey, long maxFileSize, long expirationSeconds) {
+        try {
+            long start = Instant.now().minus(30, ChronoUnit.SECONDS).getEpochSecond();
+            long end = start + expirationSeconds;
+            String keyTime = start + ";" + end;
+            String expiration = Instant.ofEpochSecond(end).toString();
+            Map<String, Object> policyValue = Map.of(
+                    "expiration", expiration,
+                    "conditions", List.of(
+                            Map.of("bucket", bucketName),
+                            List.of("eq", "$key", objectKey),
+                            List.of("content-length-range", 1, maxFileSize)
+                    )
+            );
+            String policy = Base64.getEncoder().encodeToString(
+                    JSONUtil.toJsonStr(policyValue).getBytes(StandardCharsets.UTF_8));
+            String signKey = hmacSha1Hex(secretKey, keyTime);
+            String stringToSign = sha1Hex(policy);
+            String signature = hmacSha1Hex(signKey, stringToSign);
+            return new UploadTicket(resolveCosOrigin(), objectKey, policy, "sha1", secretId,
+                    keyTime, signature, null);
+        } catch (Exception exception) {
+            throw new BusinessException(ResultCode.SYSTEM_ERROR, "生成对象存储上传凭证失败");
+        }
+    }
+
+    @Override
+    public StoredObject headObject(String objectKey) {
+        ObjectMetadata metadata = cosClient.getObjectMetadata(bucketName, extractObjectKey(objectKey));
+        return new StoredObject(metadata.getContentLength(), metadata.getContentType());
+    }
+
+    @Override
+    public InputStream openStream(String objectKey) {
+        COSObject object = cosClient.getObject(bucketName, extractObjectKey(objectKey));
+        return object.getObjectContent();
+    }
+
+    @Override
+    public String getObjectUrl(String objectKey) {
+        return buildFileUrl(objectKey);
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+        cosClient.deleteObject(bucketName, extractObjectKey(objectKey));
+    }
+
+    private String resolveCosOrigin() {
+        return "https://" + bucketName + ".cos." + region + ".myqcloud.com";
+    }
+
+    private String sha1Hex(String value) throws Exception {
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-1");
+        return toHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private String hmacSha1Hex(String key, String value) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA1");
+        mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
+        return toHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            builder.append(String.format("%02x", value));
+        }
+        return builder.toString();
+    }
     private String generateInlinePreviewUrl(String objectKey, Date expiration) {
         // 覆盖对象原有的下载响应头，让浏览器按图片、视频或音频类型直接预览
         com.qcloud.cos.model.ResponseHeaderOverrides responseHeaders = new com.qcloud.cos.model.ResponseHeaderOverrides();

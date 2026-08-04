@@ -66,6 +66,19 @@ public class WxContentSecurityServiceImpl implements WxContentSecurityService {
     }
 
     @Override
+    public void checkImage(Path file) {
+        if (file == null || !Files.exists(file)) {
+            return;
+        }
+        try {
+            if (!wxMaService.getSecurityService().checkImage(file.toFile())) {
+                throw contentRejectedException();
+            }
+        } catch (WxErrorException exception) {
+            handleWxException("image", exception);
+        }
+    }
+    @Override
     public void checkText(Long userId, Collection<String> contents) {
         String content = contents == null ? "" : contents.stream()
                 .filter(StrUtil::isNotBlank)

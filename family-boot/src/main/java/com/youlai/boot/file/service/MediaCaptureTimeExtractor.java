@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -73,6 +75,28 @@ public class MediaCaptureTimeExtractor {
         return Optional.empty();
     }
 
+    /** 从对象存储下载后的临时媒体文件提取拍摄时间。 */
+    public Optional<LocalDateTime> extract(Path file, long size, String contentType) {
+        if (file == null || !Files.exists(file)) {
+            return Optional.empty();
+        }
+        try (InputStream inputStream = Files.newInputStream(file)) {
+            Metadata metadata = ImageMetadataReader.readMetadata(inputStream, size);
+            Optional<LocalDateTime> structuredCapturedAt = findStructuredCaptureTime(metadata);
+            if (structuredCapturedAt.isPresent()) {
+                return structuredCapturedAt;
+            }
+            for (String tagName : CAPTURE_TIME_TAGS) {
+                Optional<LocalDateTime> capturedAt = findByTagName(metadata, tagName);
+                if (capturedAt.isPresent()) {
+                    return capturedAt;
+                }
+            }
+        } catch (Exception exception) {
+            log.debug("未能从直传文件提取拍摄时间，contentType={}", contentType, exception);
+        }
+        return Optional.empty();
+    }
     private Optional<LocalDateTime> findStructuredCaptureTime(Metadata metadata) {
         // 相机照片优先读取 EXIF 标准字段，避免依赖不同格式下可能变化的展示标签名。
         for (ExifSubIFDDirectory directory : metadata.getDirectoriesOfType(ExifSubIFDDirectory.class)) {
