@@ -287,6 +287,16 @@ import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
 import { useNavbar } from "@/composables/useNavbar";
 import { isLoggedIn } from "@/utils/auth";
 import { Storage } from "@/utils/storage";
+interface DisplayMomentBatch extends AlbumMomentBatch {
+  optimistic?: boolean;
+}
+
+interface AlbumNavigationTarget {
+  familyId: number;
+  albumId: number;
+  batchId?: string;
+  optimisticMoment?: AlbumMomentBatch;
+}
 
 const PAGE_SIZE = 12;
 const navbar = useNavbar({ hasTabbar: true });
@@ -294,7 +304,7 @@ const families = ref<FamilyInfo[]>([]);
 const albums = ref<FamilyAlbum[]>([]);
 const currentFamily = ref<FamilyInfo>();
 const currentAlbum = ref<FamilyAlbum>();
-const moments = ref<AlbumMomentBatch[]>([]);
+const moments = ref<DisplayMomentBatch[]>([]);
 const pageNum = ref(1);
 const total = ref(0);
 const pageLoading = ref(false);
@@ -338,9 +348,7 @@ async function initialize() {
   }
   pageLoading.value = true;
   try {
-    const navigationTarget = Storage.get<
-      { familyId: number; albumId: number; batchId?: string } | undefined
-    >(
+    const navigationTarget = Storage.get<AlbumNavigationTarget | undefined>(
       ALBUM_NAVIGATION_TARGET_KEY
     );
     if (navigationTarget) Storage.remove(ALBUM_NAVIGATION_TARGET_KEY);
@@ -353,6 +361,15 @@ async function initialize() {
     const selected = families.value.find((item) => item.id === selectedFamilyId);
     currentFamily.value = selected || families.value[0];
     await loadAlbums(navigationTarget?.albumId);
+    const optimisticMoment = navigationTarget?.optimisticMoment;
+    if (
+      optimisticMoment &&
+      currentAlbum.value?.id === optimisticMoment.albumId &&
+      !moments.value.some((item) => item.batchId === optimisticMoment.batchId)
+    ) {
+      moments.value.unshift({ ...optimisticMoment, optimistic: true });
+      total.value += 1;
+    }
     if (navigationTarget?.batchId) {
       void refreshAfterBackgroundUpload(
         navigationTarget.batchId,
@@ -564,8 +581,20 @@ function loadMore() {
   });
 }
 
-function goMomentDetail(moment: AlbumMomentBatch) {
+function goMomentDetail(moment: DisplayMomentBatch) {
   const onlyCover = moment.covers[0];
+  if (moment.optimistic) {
+    if (
+      Number(moment.assetCount) === 1 &&
+      onlyCover?.mediaType === "IMAGE" &&
+      onlyCover.previewUrl
+    ) {
+      previewImageUrl.value = onlyCover.previewUrl;
+    } else {
+      uni.showToast({ title: "上传成功，内容即将可查看", icon: "none" });
+    }
+    return;
+  }
   if (
     Number(moment.assetCount) === 1 &&
     moment.covers.length === 1 &&

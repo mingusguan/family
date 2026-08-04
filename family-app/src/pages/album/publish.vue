@@ -554,10 +554,36 @@ async function publish() {
     } else {
       uni.showToast({ title: "上传成功", icon: "success" });
     }
+    const optimisticIndexes = [...uploadedIndexes].sort((left, right) => left - right);
+    const optimisticMoment = optimisticIndexes.length
+      ? {
+          batchId: initialized.batchId,
+          uploaderId: 0,
+          uploaderName: "我",
+          familyId: familyId.value,
+          albumId: albumId.value,
+          description: description.value.trim() || undefined,
+          createTime: new Date().toISOString(),
+          assetCount: optimisticIndexes.length,
+          covers: optimisticIndexes.slice(0, 4).map((index) => {
+            const media = files[index].media;
+            return {
+              mediaType: media.type,
+              previewUrl:
+                media.type === "IMAGE"
+                  ? media.path
+                  : media.type === "VIDEO"
+                    ? media.thumbnailPath
+                    : undefined,
+            };
+          }),
+        }
+      : undefined;
     Storage.set(ALBUM_NAVIGATION_TARGET_KEY, {
       familyId: familyId.value,
       albumId: albumId.value,
       batchId: initialized.batchId,
+      optimisticMoment,
     });
     setTimeout(() => uni.switchTab({ url: "/pages/album/index" }), 700);
   } catch (error: any) {
