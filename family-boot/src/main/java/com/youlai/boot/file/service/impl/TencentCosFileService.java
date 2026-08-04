@@ -164,10 +164,11 @@ public class TencentCosFileService implements FileService, DirectUploadStorageSe
                             Map.of("q-sign-time", keyTime)
                     )
             );
-            String policy = Base64.getEncoder().encodeToString(
-                    JSONUtil.toJsonStr(policyValue).getBytes(StandardCharsets.UTF_8));
+            String policyJson = JSONUtil.toJsonStr(policyValue);
+            String policy = Base64.getEncoder().encodeToString(policyJson.getBytes(StandardCharsets.UTF_8));
             String signKey = hmacSha1Hex(secretKey, keyTime);
-            String stringToSign = sha1Hex(policy);
+            // COS POST 签名针对原始 Policy 文本计算，Base64 编码仅作为表单字段提交。
+            String stringToSign = sha1Hex(policyJson);
             String signature = hmacSha1Hex(signKey, stringToSign);
             return new UploadTicket(resolveCosOrigin(), objectKey, policy, "sha1", secretId,
                     keyTime, signature, null);
