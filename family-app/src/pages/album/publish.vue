@@ -109,7 +109,7 @@
     />
     <view v-if="submitting" class="upload-mask">
       <view class="upload-mask__card">
-        <text class="upload-mask__text">{{ uploadStage === "UPLOADING" ? "上传总进度" : processingSummary || "上传完成，正在处理" }}</text>
+        <text class="upload-mask__text">上传总进度</text>
         <view class="upload-mask__progress">
           <view class="upload-mask__progress-bar" :style="{ width: uploadPercent + '%' }" />
         </view>
@@ -122,7 +122,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import AlbumAPI, { type AlbumMediaType, type AlbumDirectUploadStatus } from "@/api/album";
+import AlbumAPI, { type AlbumMediaType } from "@/api/album";
 import FamilyAPI, { type FamilyAlbum } from "@/api/family";
 import { uploadToCos } from "@/utils/cos-upload";
 import { ALBUM_NAVIGATION_TARGET_KEY } from "@/constants";
@@ -167,11 +167,9 @@ const MAX_MEDIA_COUNT = 36;
 const MEDIA_PICKER_MAX_COUNT = 20;
 const selectedMedia = ref<SelectedMedia[]>([]);
 const submitting = ref(false);
-// 后端确认成功后保持页面级锁，避免轮询或跳转期间重复保存同一批资源。
+// 后端确认成功后保持页面级锁，避免跳转期间重复保存同一批资源。
 const publishCommitted = ref(false);
 const uploadPercent = ref(0);
-const uploadStage = ref<"UPLOADING" | "PROCESSING">("UPLOADING");
-const processingSummary = ref("");
 const recording = ref(false);
 let recorder: ReturnType<typeof uni.getRecorderManager> | undefined;
 
@@ -468,7 +466,6 @@ async function publish() {
   if (!selectedMedia.value.length || submitting.value || publishCommitted.value) return;
   submitting.value = true;
   uploadPercent.value = 0;
-  uploadStage.value = "UPLOADING";
   try {
     const files = await Promise.all(selectedMedia.value.map(async (media) => ({
       media,
@@ -542,24 +539,26 @@ async function publish() {
     }));
 
     uploadPercent.value = 100;
-    uploadStage.value = "PROCESSING";
-    let status = await AlbumAPI.confirmDirectUpload({
+    await AlbumAPI.confirmDirectUpload({
       batchId: initialized.batchId, uploadedIndexes, thumbnailUploadedIndexes,
     });
-    // 确认接口成功即视为本批次已经提交；后续轮询失败也不允许再次保存。
+    // 确认接口成功后即交由后端异步处理，发布页不再等待处理结果。
     publishCommitted.value = true;
-    status = await pollDirectUploadStatus(status);
-    const summary = "成功" + status.success + "个，失败" + status.failed + "个" +
-      (status.processing ? "，处理中" + status.processing + "个" : "");
-    if (status.status !== "COMPLETED") {
-      await showResultModal("后台仍在处理", summary + "。可先返回相册，处理完成后会自动显示。");
-    } else if (status.failed) {
+    const failedCount = initialized.uploads.length - uploadedIndexes.length;
+    if (failedCount > 0) {
       const errorDetail = directUploadErrors.length ? "\n\n" + directUploadErrors[0] : "";
-      await showResultModal("上传处理完成", summary + errorDetail);
+      await showResultModal(
+        "上传完成",
+        "成功上传" + uploadedIndexes.length + "个，失败" + failedCount + "个" + errorDetail
+      );
     } else {
-      uni.showToast({ title: "成功发布" + status.success + "个文件", icon: "success" });
+      uni.showToast({ title: "上传成功", icon: "success" });
     }
-    Storage.set(ALBUM_NAVIGATION_TARGET_KEY, { familyId: familyId.value, albumId: albumId.value });
+    Storage.set(ALBUM_NAVIGATION_TARGET_KEY, {
+      familyId: familyId.value,
+      albumId: albumId.value,
+      batchId: initialized.batchId,
+    });
     setTimeout(() => uni.switchTab({ url: "/pages/album/index" }), 700);
   } catch (error: any) {
     console.error("批量发布家庭时刻失败", error);
@@ -573,20 +572,7 @@ async function publish() {
   } finally {
     submitting.value = false;
     uploadPercent.value = 0;
-    uploadStage.value = "UPLOADING";
-    processingSummary.value = "";
   }
-}
-
-async function pollDirectUploadStatus(initial: AlbumDirectUploadStatus) {
-  let status = initial;
-  const deadline = Date.now() + 3 * 60 * 1000;
-  while (status.status !== "COMPLETED" && Date.now() < deadline) {
-    processingSummary.value = "处理中" + status.processing + "个，成功" + status.success + "个，失败" + status.failed + "个";
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    status = await AlbumAPI.getDirectUploadStatus(status.batchId);
-  }
-  return status;
 }
 
 function showResultModal(title: string, content: string) {

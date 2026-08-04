@@ -338,7 +338,9 @@ async function initialize() {
   }
   pageLoading.value = true;
   try {
-    const navigationTarget = Storage.get<{ familyId: number; albumId: number } | undefined>(
+    const navigationTarget = Storage.get<
+      { familyId: number; albumId: number; batchId?: string } | undefined
+    >(
       ALBUM_NAVIGATION_TARGET_KEY
     );
     if (navigationTarget) Storage.remove(ALBUM_NAVIGATION_TARGET_KEY);
@@ -351,12 +353,37 @@ async function initialize() {
     const selected = families.value.find((item) => item.id === selectedFamilyId);
     currentFamily.value = selected || families.value[0];
     await loadAlbums(navigationTarget?.albumId);
+    if (navigationTarget?.batchId) {
+      void refreshAfterBackgroundUpload(
+        navigationTarget.batchId,
+        navigationTarget.familyId,
+        navigationTarget.albumId
+      );
+    }
   } catch (error) {
     console.error("初始化家庭相册失败", error);
     uni.showToast({ title: "家庭相册加载失败", icon: "none" });
   } finally {
     pageLoading.value = false;
     uni.stopPullDownRefresh();
+  }
+}
+
+async function refreshAfterBackgroundUpload(batchId: string, familyId: number, albumId: number) {
+  const deadline = Date.now() + 3 * 60 * 1000;
+  while (Date.now() < deadline) {
+    try {
+      const status = await AlbumAPI.getDirectUploadStatus(batchId);
+      if (status.status === "COMPLETED") {
+        if (currentFamily.value?.id === familyId) await loadAlbums(albumId);
+        return;
+      }
+    } catch (error) {
+      // 静默刷新失败不影响相册正常使用，用户下次进入页面时仍会重新加载。
+      console.warn("静默刷新上传批次失败", batchId, error);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 }
 
