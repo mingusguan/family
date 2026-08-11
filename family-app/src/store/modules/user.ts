@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import AuthAPI, { type LoginData, type RegisterData, type SmsLoginData } from "@/api/auth";
 import UserAPI, { type UserInfo } from "@/api/user";
-import { setAccessToken, clearTokens } from "@/utils/auth";
+import { setAccessToken, setRefreshToken, clearTokens } from "@/utils/auth";
 import { Storage } from "@/utils/storage";
 import { USER_INFO_KEY } from "@/constants";
 
@@ -60,6 +60,7 @@ export const useUserStore = defineStore("user", () => {
   const loginByWxMa = async (code: string) => {
     const result = await AuthAPI.wxMaSilentLogin(code);
     setAccessToken(result.accessToken);
+    setRefreshToken(result.refreshToken);
     return result;
   };
 

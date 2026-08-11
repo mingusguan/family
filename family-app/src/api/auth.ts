@@ -36,6 +36,7 @@ export interface SmsLoginData {
 }
 
 export interface WxMaLoginResp extends LoginResult {
+  refreshToken: string;
   isNewUser: boolean;
 }
 
@@ -144,6 +145,7 @@ const AuthAPI = {
       url: `${AUTH_BASE_URL}/refresh-token`,
       method: "POST",
       auth: false,
+      header: { "content-type": "application/x-www-form-urlencoded" },
       data: { refreshToken },
     });
   },

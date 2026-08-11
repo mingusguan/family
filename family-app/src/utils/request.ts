@@ -1,4 +1,4 @@
-import { getAccessToken, clearTokens } from "./auth";
+import { getAccessToken, getRefreshToken, setAccessToken, clearTokens } from "./auth";
 import { ApiCode } from "@/enums/api-code-enum";
 
 // 401 跳转防抖锁，避免并发请求多次跳转登录页
@@ -31,6 +31,67 @@ interface RequestOptions<T = any> {
   responseType?: "text" | "arraybuffer";
   /** 是否携带访问令牌并在令牌失效时跳转登录页，公开接口设为 false */
   auth?: boolean;
+  /** 内部标记：静默续期后只允许重试一次，避免异常令牌导致循环请求 */
+  retriedAfterRefresh?: boolean;
+}
+
+const REFRESH_TOKEN_URL = "/api/v1/auth/refresh-token";
+let refreshTokenPromise: Promise<string> | null = null;
+
+function resolveRequestUrl(path: string): string {
+  let requestUrl = path;
+  // #ifdef H5
+  requestUrl = `${import.meta.env.VITE_APP_BASE_API}${path}`;
+  // #endif
+
+  // #ifndef H5
+  const appApiUrl =
+    import.meta.env.MODE !== "production"
+      ? import.meta.env.VITE_APP_DEV_API_URL
+      : import.meta.env.VITE_APP_API_URL;
+  requestUrl = `${appApiUrl}${path}`;
+  // #endif
+  return requestUrl;
+}
+
+/**
+ * 使用刷新令牌静默换取新的访问令牌。
+ * 并发请求共享同一个任务，避免令牌过期时重复调用刷新接口。
+ */
+function refreshAccessToken(): Promise<string> {
+  if (refreshTokenPromise) return refreshTokenPromise;
+
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return Promise.reject(new Error("刷新令牌不存在"));
+
+  refreshTokenPromise = new Promise<string>((resolve, reject) => {
+    uni.request({
+      url: resolveRequestUrl(REFRESH_TOKEN_URL),
+      method: "POST",
+      header: { "content-type": "application/x-www-form-urlencoded" },
+      data: { refreshToken },
+      timeout: 30000,
+      success: async (res: any) => {
+        const serverCode = res?.data?.code;
+        const accessToken = res?.data?.data?.accessToken;
+        const isSuccess =
+          res.statusCode >= 200 &&
+          res.statusCode < 300 &&
+          (!serverCode || serverCode === ApiCode.SUCCESS);
+        if (isSuccess && accessToken) {
+          setAccessToken(accessToken);
+          resolve(accessToken);
+          return;
+        }
+        reject(new Error(res?.data?.msg || res?.data?.message || "登录续期失败"));
+      },
+      fail: (error) => reject(new Error(error.errMsg || "登录续期失败")),
+    });
+  }).finally(() => {
+    refreshTokenPromise = null;
+  });
+
+  return refreshTokenPromise;
 }
 
 /**
@@ -51,21 +112,7 @@ function request<T = any>(options: RequestOptions): Promise<T> {
       header["Authorization"] = `Bearer ${token}`;
     }
 
-    // 根据平台决定URL前缀
-    let requestUrl = options.url;
-    // #ifdef H5
-    // H5 开发环境通过 Vite 代理访问后端
-    requestUrl = `${import.meta.env.VITE_APP_BASE_API}${options.url}`;
-    // #endif
-
-    // #ifndef H5
-    // App 和小程序没有 Vite 代理，必须使用可从设备访问的完整后端地址
-    const appApiUrl =
-      import.meta.env.MODE !== "production"
-        ? import.meta.env.VITE_APP_DEV_API_URL
-        : import.meta.env.VITE_APP_API_URL;
-    requestUrl = `${appApiUrl}${options.url}`;
-    // #endif
+    const requestUrl = resolveRequestUrl(options.url);
 
     // 统一处理请求
     uni.request({
@@ -75,7 +122,7 @@ function request<T = any>(options: RequestOptions): Promise<T> {
       header,
       timeout: options.timeout || 30000,
       responseType: options.responseType,
-      success: (res: any) => {
+      success: async (res: any) => {
         const serverCode = res?.data?.code;
         const serverMsg = res?.data?.msg || res?.data?.message;
 
@@ -84,6 +131,15 @@ function request<T = any>(options: RequestOptions): Promise<T> {
           (res.statusCode >= 200 && res.statusCode < 300 && serverCode?.startsWith("A023")) ||
           res.statusCode === 401;
         if (isTokenError) {
+          if (requiresAuth && !options.retriedAfterRefresh && getRefreshToken()) {
+            try {
+              await refreshAccessToken();
+              resolve(await request<T>({ ...options, retriedAfterRefresh: true }));
+              return;
+            } catch (error) {
+              console.warn("微信登录静默续期失败", error);
+            }
+          }
           if (requiresAuth) clearTokens();
           if (requiresAuth && !isRedirecting401) {
             isRedirecting401 = true;
