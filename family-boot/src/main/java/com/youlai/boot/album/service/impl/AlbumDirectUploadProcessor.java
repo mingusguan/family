@@ -5,6 +5,8 @@ import com.youlai.boot.album.enums.AlbumMediaTypeEnum;
 import com.youlai.boot.album.mapper.AlbumAssetMapper;
 import com.youlai.boot.album.mapper.AlbumUploadBatchMapper;
 import com.youlai.boot.album.model.entity.AlbumAsset;
+import com.youlai.boot.common.exception.BusinessException;
+import com.youlai.boot.common.result.ResultCode;
 import com.youlai.boot.file.service.DirectUploadStorageService;
 import com.youlai.boot.file.service.MediaCaptureTimeExtractor;
 import com.youlai.boot.framework.integration.wxma.service.WxContentSecurityService;
@@ -58,15 +60,23 @@ public class AlbumDirectUploadProcessor {
                     .extract(tempFile, stored.size(), stored.contentType())
                     .orElse(asset.getCreateTime() == null ? LocalDateTime.now() : asset.getCreateTime());
             String verifiedMime = StrUtil.blankToDefault(stored.contentType(), asset.getMimeType());
-            asset.approveDirectUpload(stored.size(), verifiedMime, capturedAt);
+            asset.completeDirectUploadMetadata(stored.size(), verifiedMime, capturedAt);
             assetMapper.updateById(asset);
             batchMapper.incrementSuccess(batchId);
         } catch (Exception exception) {
-            log.warn("相册直传资源处理失败，batchId={}, assetId={}", batchId, assetId, exception);
-            safeDelete(asset.getUrl());
-            safeDelete(asset.getThumbnailUrl());
-            assetMapper.deleteById(assetId);
-            batchMapper.incrementFailure(batchId);
+            if (exception instanceof BusinessException businessException
+                    && businessException.getResultCode() == ResultCode.CONTENT_SECURITY_REJECTED) {
+                log.warn("相册直传资源未通过内容安全检测，batchId={}, assetId={}", batchId, assetId);
+                safeDelete(asset.getUrl());
+                safeDelete(asset.getThumbnailUrl());
+                assetMapper.deleteById(assetId);
+                batchMapper.incrementFailure(batchId);
+            } else {
+                // 文件已经通过 COS 确认并公开，元数据补充异常时保留资源和上传时间。
+                log.warn("相册直传资源元数据补充失败，已保留资源，batchId={}, assetId={}",
+                        batchId, assetId, exception);
+                batchMapper.incrementSuccess(batchId);
+            }
         } finally {
             if (tempFile != null) {
                 try {

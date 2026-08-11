@@ -23,7 +23,7 @@
     <view v-if="!isLogged" class="empty-state">
       <view class="empty-state__icon"><wd-icon name="user" size="52rpx" color="#7668de" /></view>
       <text class="empty-state__title">登录后查看家庭相册</text>
-      <text class="empty-state__desc">与家人一起上传照片、视频和声音</text>
+      <text class="empty-state__desc">与家人一起上传照片和视频</text>
       <wd-button type="primary" round @click="goLogin">立即登录</wd-button>
     </view>
 
@@ -170,7 +170,7 @@
             {{
               hasSearchFilters
                 ? "换个日期或描述再试试"
-                : "上传照片、视频或一段声音，留下第一个回忆"
+                : "上传照片或视频，留下第一个回忆"
             }}
           </text>
           <wd-button

@@ -73,7 +73,7 @@ public class AlbumAsset extends BaseEntity {
         return asset;
     }
 
-    /** 创建尚未通过异步审核、对家庭成员不可见的直传资源。 */
+    /** 创建尚未确认对象已上传完成的直传资源。 */
     @JsonIgnore
     public static AlbumAsset createPendingDirect(
             Long uploaderId,
@@ -104,12 +104,19 @@ public class AlbumAsset extends BaseEntity {
         return asset;
     }
 
-    /** 使用 COS 校验值更新元数据并公开展示。 */
-    public void approveDirectUpload(long verifiedSize, String verifiedMimeType, LocalDateTime capturedAt) {
+    /** COS 对象确认存在后立即公开，拍摄时间暂时使用上传时间。 */
+    public void publishVerifiedDirectUpload(long verifiedSize, String verifiedMimeType) {
+        this.fileSize = verifiedSize;
+        this.mimeType = verifiedMimeType;
+        this.capturedAt = getCreateTime() == null ? LocalDateTime.now() : getCreateTime();
+        this.status = 1;
+    }
+
+    /** 异步处理完成后补充经过校验的媒体元数据。 */
+    public void completeDirectUploadMetadata(long verifiedSize, String verifiedMimeType, LocalDateTime capturedAt) {
         this.fileSize = verifiedSize;
         this.mimeType = verifiedMimeType;
         this.capturedAt = capturedAt;
-        this.status = 1;
     }
 
     /** 封面直传失败时保留原视频并移除无效封面地址。 */

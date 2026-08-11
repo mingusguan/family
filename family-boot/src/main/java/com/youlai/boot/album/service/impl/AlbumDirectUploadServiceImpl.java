@@ -181,8 +181,10 @@ public class AlbumDirectUploadServiceImpl implements AlbumDirectUploadService {
                     throw new IllegalArgumentException("文件大小不合法");
                 }
                 actualTotal += stored.size();
-                asset.setFileSize(stored.size());
-                asset.setMimeType(StrUtil.blankToDefault(stored.contentType(), asset.getMimeType()));
+                asset.publishVerifiedDirectUpload(
+                        stored.size(),
+                        StrUtil.blankToDefault(stored.contentType(), asset.getMimeType())
+                );
                 if (StrUtil.isNotBlank(asset.getThumbnailUrl())) {
                     if (thumbnails.contains(index)) {
                         DirectUploadStorageService.StoredObject thumbnail = storageService.headObject(asset.getThumbnailUrl());
@@ -191,7 +193,6 @@ public class AlbumDirectUploadServiceImpl implements AlbumDirectUploadService {
                         asset.removeThumbnail();
                     }
                 }
-                assetMapper.updateById(asset);
                 processing.add(asset);
             } catch (Exception exception) {
                 safeDelete(asset.getUrl());
@@ -208,6 +209,10 @@ public class AlbumDirectUploadServiceImpl implements AlbumDirectUploadService {
             processing.clear();
         }
 
+        // COS 对象校验通过后立即公开，耗时的元数据提取继续由后台线程完成。
+        if (!processing.isEmpty() && !Db.updateBatchById(processing)) {
+            throw new BusinessException("确认直传资源失败");
+        }
         int failed = batch.getTotalCount() - processing.size();
         if (batchMapper.confirm(batch.getBatchId(), processing.size(), failed) == 0) {
             return getStatus(batch.getBatchId());

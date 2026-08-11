@@ -105,12 +105,6 @@
                     controls
                     object-fit="cover"
                   />
-                  <view v-else class="moment-card__audio" @click="playAudio(moment)">
-                    <view class="audio-disc">
-                      <wd-icon name="voice" size="30" color="#ffffff" />
-                    </view>
-                    <text>点击播放音频</text>
-                  </view>
                   <cover-view class="moment-card__badge">
                     {{ formatMediaMeta(moment) }}
                   </cover-view>
@@ -139,7 +133,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import dayjs from "dayjs";
-import { onLoad, onReachBottom, onUnload } from "@dcloudio/uni-app";
+import { onLoad, onReachBottom } from "@dcloudio/uni-app";
 import AlbumAPI, { type AlbumMediaType, type AlbumMoment } from "@/api/album";
 
 definePage({
@@ -163,12 +157,10 @@ const total = ref(0);
 const loading = ref(false);
 const loadingMore = ref(false);
 let filterVersion = 0;
-let audioContext: UniApp.InnerAudioContext | undefined;
 
 const mediaOptions: Array<{ value: AlbumMediaType; label: string; icon: string }> = [
   { value: "IMAGE", label: "图片", icon: "image" },
   { value: "VIDEO", label: "视频", icon: "play-circle" },
-  { value: "AUDIO", label: "音频", icon: "voice" },
 ];
 
 const months = computed(() =>
@@ -212,11 +204,6 @@ onLoad((options) => {
     return;
   }
   reloadMoments();
-});
-
-onUnload(() => {
-  audioContext?.destroy();
-  audioContext = undefined;
 });
 
 async function reloadMoments() {
@@ -304,14 +291,6 @@ function previewImage(moment: AlbumMoment) {
     current: moment.previewUrl,
     urls: images.map((item) => item.previewUrl),
   });
-}
-
-function playAudio(moment: AlbumMoment) {
-  audioContext?.destroy();
-  audioContext = uni.createInnerAudioContext();
-  audioContext.src = moment.previewUrl;
-  audioContext.play();
-  uni.showToast({ title: "正在播放音频", icon: "none" });
 }
 
 function formatMomentTime(moment: AlbumMoment) {
@@ -594,32 +573,9 @@ onReachBottom(loadMore);
   background: #ece8f1;
 }
 
-.moment-card__media,
-.moment-card__audio {
+.moment-card__media {
   width: 100%;
   height: 100%;
-}
-
-.moment-card__audio {
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-  align-items: center;
-  justify-content: center;
-  font-size: 20rpx;
-  color: #fff;
-  background: linear-gradient(145deg, #796bdd, #bc78bd);
-}
-
-.audio-disc {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 76rpx;
-  height: 76rpx;
-  background: rgb(255 255 255 / 18%);
-  border: 2rpx solid rgb(255 255 255 / 38%);
-  border-radius: 50%;
 }
 
 .moment-card__badge {

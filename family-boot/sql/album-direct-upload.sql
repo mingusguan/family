@@ -19,4 +19,4 @@ CREATE TABLE IF NOT EXISTS app_album_upload_batch (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='小程序相册直传批次';
 
 -- 原有资源表已具备 upload_batch_id、status、file_size、mime_type、captured_at 字段。
--- status=0 的直传资源在审核完成前不会进入小程序列表；失败资源会逻辑删除。
+-- status=0 仅表示尚未完成 COS 对象核验；确认通过后立即切换为 status=1，元数据在后台继续补充。

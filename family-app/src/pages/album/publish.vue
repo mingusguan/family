@@ -2,14 +2,6 @@
   <view class="publish-page">
     <custom-navbar title="发布家庭时刻" placeholder />
 
-    <view class="publish-target" @click="chooseAlbum">
-      <wd-icon name="home" size="16" color="#7567dc" />
-      <text class="publish-target__label">发布到</text>
-      <text class="publish-target__album">{{ albumName || "请选择相册" }}</text>
-      <text class="publish-target__action">切换</text>
-      <wd-icon name="right" size="15" color="#968eaa" />
-    </view>
-
     <view class="publish-card publish-card--media">
       <view class="publish-title-row">
         <text class="publish-card__title">上传照片或视频</text>
@@ -40,11 +32,6 @@
             controls
             object-fit="cover"
           />
-          <view v-else class="selected-media__audio">
-            <wd-icon name="voice" size="30" color="#7567dc" />
-            <text class="selected-media__name">{{ media.name }}</text>
-            <text class="selected-media__meta">{{ formatDuration(media.duration) }}</text>
-          </view>
           <view class="selected-media__remove" @click.stop="removeMedia(index)">
             <wd-icon name="close" size="14" color="#ffffff" />
           </view>
@@ -62,18 +49,6 @@
         已选择 {{ selectedMedia.length }}/{{ MAX_MEDIA_COUNT }} 个
       </text>
 
-      <view class="audio-entry" @click="chooseAudio">
-        <view class="audio-entry__icon">
-          <wd-icon :name="recording ? 'pause-circle' : 'voice'" size="22" color="#7567dc" />
-        </view>
-        <view class="audio-entry__body">
-          <text class="audio-entry__title">
-            {{ recording ? "正在录音，点击结束" : "上传一段声音" }}
-          </text>
-          <text class="audio-entry__desc">支持录音或选择已有音频文件</text>
-        </view>
-        <wd-icon name="right" size="16" color="#aaa3b2" />
-      </view>
     </view>
 
     <view class="publish-card">
@@ -92,9 +67,9 @@
         block
         round
         :loading="submitting"
-        :disabled="submitting || publishCommitted || !albumId || !selectedMedia.length"
+        :disabled="submitting || publishCommitted || !selectedMedia.length"
         custom-class="publish-button"
-        @click="publish"
+        @click="preparePublish"
       >
         发布到家庭相册
       </wd-button>
@@ -152,14 +127,12 @@ definePage({
 
 const familyId = ref(0);
 const albumId = ref(0);
-const albumName = ref("");
 const albums = ref<FamilyAlbum[]>([]);
 const albumSheetVisible = ref(false);
 const albumActions = computed(() =>
   albums.value.map((album) => ({
     name: album.name,
-    description: album.id === albumId.value ? "当前相册" : album.assetCount + " 项内容",
-    color: album.id === albumId.value ? "#7567dc" : undefined,
+    description: album.assetCount + " 项内容",
   }))
 );
 const description = ref("");
@@ -170,51 +143,23 @@ const submitting = ref(false);
 // 后端确认成功后保持页面级锁，避免跳转期间重复保存同一批资源。
 const publishCommitted = ref(false);
 const uploadPercent = ref(0);
-const recording = ref(false);
-let recorder: ReturnType<typeof uni.getRecorderManager> | undefined;
-
-// #ifndef H5
-recorder = uni.getRecorderManager();
-recorder.onStop((result) => {
-  recording.value = false;
-  addSelectedMedia({
-    type: "AUDIO",
-    path: result.tempFilePath,
-    name: "家庭声音-" + Date.now() + ".mp3",
-    mimeType: "audio/mpeg",
-    duration: result.duration,
-    size: result.fileSize,
-  });
-});
-
-recorder.onError(() => {
-  recording.value = false;
-  uni.showToast({ title: "录音失败，请检查麦克风权限", icon: "none" });
-});
-// #endif
 
 async function loadAlbums() {
   try {
     albums.value = await FamilyAPI.listAlbums(familyId.value);
-    const selectedAlbum =
-      albums.value.find((album) => album.id === albumId.value) || albums.value[0];
-    if (!selectedAlbum) {
-      albumId.value = 0;
-      albumName.value = "";
+    if (!albums.value.length) {
       uni.showToast({ title: "当前家庭还没有相册", icon: "none" });
-      return;
     }
-    albumId.value = selectedAlbum.id;
-    albumName.value = selectedAlbum.name;
   } catch (error: any) {
     console.error("读取家庭相册失败", error);
     uni.showToast({ title: error?.message || "相册加载失败", icon: "none" });
   }
 }
 
-function chooseAlbum() {
+function preparePublish() {
+  if (!selectedMedia.value.length || submitting.value || publishCommitted.value) return;
   if (!albums.value.length) {
-    uni.showToast({ title: "暂无可选择的相册", icon: "none" });
+    uni.showToast({ title: "请先创建家庭相册", icon: "none" });
     return;
   }
   albumSheetVisible.value = true;
@@ -224,8 +169,8 @@ function handleAlbumSelect({ index }: { index: number }) {
   const selectedAlbum = albums.value[index];
   if (!selectedAlbum) return;
   albumId.value = selectedAlbum.id;
-  albumName.value = selectedAlbum.name;
   albumSheetVisible.value = false;
+  void publish();
 }
 
 function choosePhotoOrVideo() {
@@ -372,77 +317,6 @@ async function applyPickedMedia(file: any) {
   });
 }
 
-function chooseAudio() {
-  // #ifdef H5
-  chooseH5AudioFile();
-  return;
-  // #endif
-
-  if (!recorder) return;
-  if (recording.value) {
-    recorder?.stop();
-    return;
-  }
-  uni.showActionSheet({
-    itemList: ["录制一段声音", "选择音频文件"],
-    success: (result) => {
-      if (result.tapIndex === 0) {
-        recording.value = true;
-        recorder?.start({ format: "mp3", duration: 600000 });
-        uni.showToast({ title: "录音已开始，再次点击“声音”结束", icon: "none", duration: 2500 });
-      } else {
-        chooseAudioFile();
-      }
-    },
-  });
-}
-
-// #ifdef H5
-function chooseH5AudioFile() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "audio/*";
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const path = URL.createObjectURL(file);
-    addSelectedMedia({
-      type: "AUDIO",
-      path,
-      name: file.name || "family-audio.mp3",
-      mimeType: file.type || getMimeType(file.name, "audio/mpeg"),
-      size: file.size,
-      rawFile: file,
-    });
-  };
-  input.click();
-}
-// #endif
-
-function chooseAudioFile() {
-  const chooseFile = (uni as any).chooseFile;
-  if (typeof chooseFile !== "function") {
-    uni.showToast({ title: "当前平台请使用录音方式上传声音", icon: "none" });
-    return;
-  }
-  chooseFile({
-    count: 1,
-    extension: ["mp3", "m4a", "aac", "wav", "ogg"],
-    success: (result: any) => {
-      const file = result.tempFiles?.[0];
-      const path = file?.path || result.tempFilePaths?.[0];
-      if (!path) return;
-      addSelectedMedia({
-        type: "AUDIO",
-        path,
-        name: file?.name || getFileName(path, "family-audio.mp3"),
-        mimeType: file?.type || getMimeType(path, "audio/mpeg"),
-        size: file?.size,
-      });
-    },
-  });
-}
-
 function addSelectedMedia(media: SelectedMedia) {
   if (selectedMedia.value.length >= MAX_MEDIA_COUNT) {
     uni.showToast({ title: "一次最多选择36个文件", icon: "none" });
@@ -463,7 +337,7 @@ function removeMedia(index: number) {
 }
 
 async function publish() {
-  if (!selectedMedia.value.length || submitting.value || publishCommitted.value) return;
+  if (!albumId.value || !selectedMedia.value.length || submitting.value || publishCommitted.value) return;
   submitting.value = true;
   uploadPercent.value = 0;
   try {
@@ -708,25 +582,12 @@ function getMimeType(path: string, fallback: string) {
     webp: "image/webp",
     mp4: "video/mp4",
     mov: "video/quicktime",
-    mp3: "audio/mpeg",
-    m4a: "audio/mp4",
-    aac: "audio/aac",
-    wav: "audio/wav",
-    ogg: "audio/ogg",
   };
   return types[extension || ""] || fallback;
 }
 
-function formatDuration(duration?: number) {
-  if (!duration) return "声音文件";
-  const seconds = Math.round(duration / 1000);
-  return Math.floor(seconds / 60) + "分" + (seconds % 60) + "秒";
-}
-
 onLoad((options) => {
   familyId.value = Number(options?.familyId || 0);
-  albumId.value = Number(options?.albumId || 0);
-  albumName.value = decodeURIComponent(options?.albumName || "");
   if (!familyId.value) {
     uni.showToast({ title: "家庭参数缺失", icon: "none" });
     setTimeout(() => uni.navigateBack(), 800);
@@ -741,33 +602,6 @@ onLoad((options) => {
   min-height: 100vh;
   padding: 24rpx 28rpx 180rpx;
   background: #f5f3fa;
-}
-
-.publish-target {
-  display: flex;
-  gap: 10rpx;
-  align-items: center;
-  padding: 18rpx 22rpx;
-  margin-bottom: 18rpx;
-  font-size: 22rpx;
-  color: #8c8498;
-  background: #ebe8fa;
-  border-radius: 20rpx;
-}
-
-.publish-target__album {
-  flex: 1;
-  overflow: hidden;
-  font-size: 24rpx;
-  font-weight: 650;
-  color: #5d51bd;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.publish-target__action {
-  flex-shrink: 0;
-  font-size: 21rpx;
-  color: #8d84a0;
 }
 
 .publish-title-row {
@@ -819,47 +653,6 @@ onLoad((options) => {
   margin-top: 9rpx;
   font-size: 21rpx;
   color: #9c95a5;
-}
-
-.audio-entry {
-  display: flex;
-  gap: 16rpx;
-  align-items: center;
-  padding: 20rpx;
-  margin-top: 18rpx;
-  background: #f6f3fb;
-  border-radius: 22rpx;
-}
-
-.audio-entry__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 66rpx;
-  height: 66rpx;
-  background: #e9e5fb;
-  border-radius: 20rpx;
-}
-
-.audio-entry__body {
-  flex: 1;
-}
-
-.audio-entry__title,
-.audio-entry__desc {
-  display: block;
-}
-
-.audio-entry__title {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #4b4455;
-}
-
-.audio-entry__desc {
-  margin-top: 6rpx;
-  font-size: 19rpx;
-  color: #9f98a8;
 }
 
 .selected-media__replace {
@@ -936,10 +729,6 @@ onLoad((options) => {
   background: linear-gradient(145deg, #e08aa0, #b870c8);
 }
 
-.media-type--audio {
-  background: linear-gradient(145deg, #54b1a4, #6b8fd8);
-}
-
 .selected-media-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -959,37 +748,6 @@ onLoad((options) => {
 .selected-media__preview {
   width: 100%;
   height: 100%;
-}
-
-.selected-media__audio {
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 18rpx;
-  color: #4d4658;
-  text-align: center;
-  background: #f0edfc;
-}
-
-.selected-media__name,
-.selected-media__meta {
-  display: block;
-  max-width: 100%;
-}
-
-.selected-media__name {
-  overflow: hidden;
-  font-size: 20rpx;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.selected-media__meta {
-  font-size: 18rpx;
-  color: #91899d;
 }
 
 .selected-media__remove {
