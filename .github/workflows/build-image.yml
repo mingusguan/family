@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/build-image.yml'
       - 'family-boot/**'
 
 concurrency:
@@ -62,6 +63,8 @@ jobs:
           push: true
           tags: ${{ steps.image.outputs.backend_tags }}
           platforms: linux/amd64
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
