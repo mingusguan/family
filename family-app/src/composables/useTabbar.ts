@@ -34,7 +34,7 @@ export interface TabbarItem {
 const DEFAULT_TABBAR_ITEMS: Omit<TabbarItem, "active">[] = [
   { name: "home", value: null, title: "首页", icon: "home" },
   { name: "album", value: null, title: "相册", icon: "image" },
-  { name: "menu", value: null, title: "菜单", icon: "menu" },
+  { name: "menu", value: null, title: "食谱", icon: "menu" },
   { name: "plan", value: null, title: "计划", icon: "calendar-line" },
   { name: "mine", value: null, title: "我的", icon: "user" },
 ];

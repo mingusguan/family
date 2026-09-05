@@ -39,7 +39,7 @@ export default defineConfig(async ({ mode }: ConfigEnv): Promise<UserConfig> => 
   const env = loadEnv(mode, process.cwd());
   const isProd = mode === "production";
   // 真机调试必须使用电脑的局域网地址，手机中的 127.0.0.1 指向手机自身。
-  const devApiUrl = "http://192.168.100.143:8000";
+  const devApiUrl = env.VITE_APP_DEV_API_URL || env.VITE_APP_API_URL || "http://127.0.0.1:8000";
 
   const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf-8")) as {
     version?: string;

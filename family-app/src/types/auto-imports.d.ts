@@ -116,6 +116,7 @@ declare global {
   const publicRequest: typeof import('../utils/request')['publicRequest']
   const reactive: typeof import('vue')['reactive']
   const readonly: typeof import('vue')['readonly']
+  const recipe: typeof import('../api/recipe')['default']
   const ref: typeof import('vue')['ref']
   const request: typeof import('../utils/request')['default']
   const requireLogin: typeof import('../utils/auth')['requireLogin']
@@ -329,6 +330,7 @@ declare module 'vue' {
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
     readonly reactive: UnwrapRef<typeof import('vue')['reactive']>
     readonly readonly: UnwrapRef<typeof import('vue')['readonly']>
+    readonly recipe: UnwrapRef<typeof import('../api/recipe')['default']>
     readonly ref: UnwrapRef<typeof import('vue')['ref']>
     readonly request: UnwrapRef<typeof import('../utils/request')['default']>
     readonly requireLogin: UnwrapRef<typeof import('../utils/auth')['requireLogin']>

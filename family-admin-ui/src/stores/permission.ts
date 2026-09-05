@@ -6,7 +6,10 @@ import { useUserStoreHook } from "@/stores/user";
 
 import MenuAPI from "@/api/system/menu";
 import type { RouteItem } from "@/api/system/menu";
-const modules = import.meta.glob("../views/**/**.vue");
+const modules = import.meta.glob("../views/**/*.vue");
+const explicitViewModules: Record<string, () => Promise<unknown>> = {
+  "recipe/index": () => import("../views/recipe/index.vue"),
+};
 const Layout = () => import("../layouts/index.vue");
 
 function resolveViewComponent(componentPath: string) {
@@ -15,6 +18,7 @@ function resolveViewComponent(componentPath: string) {
     .replace(/^\/+/, "")
     .replace(/\.vue$/i, "");
   return (
+    explicitViewModules[normalized] ||
     modules[`../views/${normalized}.vue`] ||
     modules[`../views/${normalized}/index.vue`] ||
     modules[`../views/error/404.vue`]

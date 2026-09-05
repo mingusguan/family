@@ -8,6 +8,7 @@ import com.youlai.boot.framework.security.filter.CaptchaValidationFilter;
 import com.youlai.boot.framework.security.filter.TokenAuthenticationFilter;
 import com.youlai.boot.framework.security.handler.MyAccessDeniedHandler;
 import com.youlai.boot.framework.security.handler.MyAuthenticationEntryPoint;
+import com.youlai.boot.framework.integration.wxma.WxMaProperties;
 import com.youlai.boot.framework.security.provider.SmsAuthenticationProvider;
 import com.youlai.boot.framework.security.provider.WxMaAuthenticationProvider;
 import com.youlai.boot.framework.security.token.TokenManager;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -69,6 +71,9 @@ public class SecurityConfig {
                             if (ArrayUtil.isNotEmpty(ignoreUrls)) {
                                 requestMatcherRegistry.requestMatchers(ignoreUrls).permitAll();
                             }
+                            requestMatcherRegistry.requestMatchers(HttpMethod.GET,
+                                    "/api/v1/app/recipes",
+                                    "/api/v1/app/recipes/*").permitAll();
                             // 其他所有请求需登录后访问
                             requestMatcherRegistry.anyRequest().authenticated();
                         }
@@ -136,9 +141,10 @@ public class SecurityConfig {
     @Bean
     public WxMaAuthenticationProvider wechatMiniAuthenticationProvider(
             WxMaService wxMaService,
-            SysUserDetailsService sysUserDetailsService
+            SysUserDetailsService sysUserDetailsService,
+            WxMaProperties wxMaProperties
     ) {
-        return new WxMaAuthenticationProvider(wxMaService, sysUserDetailsService, userSocialService);
+        return new WxMaAuthenticationProvider(wxMaService, sysUserDetailsService, userSocialService, wxMaProperties);
     }
 
     /**

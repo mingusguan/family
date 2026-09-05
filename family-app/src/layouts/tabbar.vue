@@ -38,7 +38,7 @@ const themeCSSVars = computed(() => themeStore.themeCSSVars);
 const tabbarList = [
   { name: "/pages/index/index", title: "首页", icon: "home" },
   { name: "/pages/album/index", title: "相册", icon: "image" },
-  { name: "/pages/menu/index", title: "菜单", icon: "menu" },
+  { name: "/pages/menu/index", title: "食谱", icon: "menu" },
   { name: "/pages/plan/index", title: "计划", icon: "calendar-line" },
   { name: "/pages/mine/index", title: "我的", icon: "user" },
 ];

@@ -83,6 +83,10 @@
       }
     },
     {
+      "path": "pages/menu/detail",
+      "type": "page"
+    },
+    {
       "path": "pages/menu/index",
       "type": "page",
       "name": "menu",

@@ -3,6 +3,8 @@ package com.youlai.boot.framework.security.provider;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import com.youlai.boot.framework.integration.wxma.WxMaProperties;
 import com.youlai.boot.framework.security.model.SysUserDetails;
 import com.youlai.boot.framework.security.model.UserAuthInfo;
 import com.youlai.boot.framework.security.model.WxMaAuthenticationToken;
@@ -28,6 +30,7 @@ public class WxMaAuthenticationProvider implements AuthenticationProvider {
     private final WxMaService wxMaService;
     private final SysUserDetailsService sysUserDetailsService;
     private final UserSocialService userSocialService;
+    private final WxMaProperties wxMaProperties;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
@@ -40,7 +43,7 @@ public class WxMaAuthenticationProvider implements AuthenticationProvider {
 
         try {
             // 1. 用 code 换取 openid
-            WxMaJscode2SessionResult session = wxMaService.jsCode2SessionInfo(code);
+            WxMaJscode2SessionResult session = resolveSession(code);
             String openid = session.getOpenid();
             String sessionKey = session.getSessionKey();
 
@@ -64,7 +67,15 @@ public class WxMaAuthenticationProvider implements AuthenticationProvider {
             UserAuthInfo userAuthInfo = sysUserDetailsService.getAuthInfoByWechatOpenid(openid);
 
             if (userAuthInfo == null) {
-                log.warn("微信小程序登录失败：用户不存在，openid={}", openid);
+                log.warn("微信小程序登录发现失效绑定，将自动重建 APP 用户，openid={}, oldUserId={}",
+                        openid, userSocial.getUserId());
+                userSocial = userSocialService.createWechatUserBinding(openid, session.getUnionid(), sessionKey);
+                userAuthInfo = sysUserDetailsService.getAuthInfoByWechatOpenid(openid);
+                newUser = true;
+            }
+
+            if (userAuthInfo == null) {
+                log.warn("微信小程序登录失败：重建 APP 用户后仍不存在，openid={}", openid);
                 throw new UsernameNotFoundException("用户不存在");
             }
 
@@ -85,6 +96,17 @@ public class WxMaAuthenticationProvider implements AuthenticationProvider {
             log.error("微信小程序登录失败：调用微信接口异常", e);
             throw new IllegalArgumentException("微信登录失败：" + e.getMessage());
         }
+    }
+
+    private WxMaJscode2SessionResult resolveSession(String code) throws WxErrorException {
+        if (wxMaProperties.getMockLogin().isEnabled()) {
+            WxMaJscode2SessionResult session = new WxMaJscode2SessionResult();
+            session.setOpenid(StrUtil.blankToDefault(wxMaProperties.getMockLogin().getOpenid(), "dev-wxma-openid"));
+            session.setSessionKey(StrUtil.blankToDefault(wxMaProperties.getMockLogin().getSessionKey(), "dev-wxma-session-key"));
+            log.warn("微信小程序 mock 登录已启用，仅允许本地开发使用，code={}", code);
+            return session;
+        }
+        return wxMaService.jsCode2SessionInfo(code);
     }
 
     @Override

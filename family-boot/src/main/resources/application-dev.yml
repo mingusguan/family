@@ -186,5 +186,28 @@ wx:
   miniapp:
     appid: ${WX_MINIAPP_APPID}
     secret: ${WX_MINIAPP_SECRET}
+    mock-login:
+      enabled: true
+      openid: ${WX_MINIAPP_MOCK_OPENID:dev-wxma-openid}
+      session-key: ${WX_MINIAPP_MOCK_SESSION_KEY:dev-wxma-session-key}
     content-security:
       fail-open: true # 微信检测服务异常时允许发布，明确违规内容仍会被拦截
+
+# 食谱第三方数据源配置
+recipe:
+  jisu:
+    app-key: ${JISU_RECIPE_APPKEY:}
+    search-url: https://api.jisuapi.com/recipe/search
+    by-class-url: https://api.jisuapi.com/recipe/byclass
+    category-url: https://api.jisuapi.com/recipe/class
+    detail-url: https://api.jisuapi.com/recipe/detail
+    category-param-name: classid
+    keyword-param-name: keyword
+    id-param-name: id
+    page-param-name: start
+    page-size-param-name: num
+    max-page-size: ${JISU_RECIPE_MAX_PAGE_SIZE:20}
+    default-keywords:
+      - 婴幼儿
+      - 宝宝食谱
+      - 儿童
